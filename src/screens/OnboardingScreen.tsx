@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,8 @@ import {
   SafeAreaView,
   KeyboardAvoidingView,
   Platform,
+  Animated,
+  Easing,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ExerciseFreq, Gender, UserProfile } from '../types';
@@ -47,12 +49,70 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
     initialProfile?.isDieting ?? false
   );
 
+  // Slide & Fade animation states
+  const slideAnim = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const progressAnim = useRef(new Animated.Value(25)).current;
+  const isTransitioningRef = useRef(false);
+
+  useEffect(() => {
+    Animated.timing(progressAnim, {
+      toValue: step * 25,
+      duration: 320,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+  }, [step]);
+
   const canContinue =
     step !== 1 || (name.trim().length >= 2 && parseInt(age, 10) >= 10);
 
+  const transitionStep = (newStep: number, direction: 'forward' | 'backward') => {
+    if (isTransitioningRef.current) return;
+    isTransitioningRef.current = true;
+
+    const outX = direction === 'forward' ? -35 : 35;
+    const inX = direction === 'forward' ? 35 : -35;
+
+    Animated.parallel([
+      Animated.timing(slideAnim, {
+        toValue: outX,
+        duration: 110,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: Platform.OS !== 'web',
+      }),
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 110,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: Platform.OS !== 'web',
+      }),
+    ]).start(() => {
+      setStep(newStep);
+      slideAnim.setValue(inX);
+
+      Animated.parallel([
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 220,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: Platform.OS !== 'web',
+        }),
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 220,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: Platform.OS !== 'web',
+        }),
+      ]).start(() => {
+        isTransitioningRef.current = false;
+      });
+    });
+  };
+
   const handleNext = () => {
     if (step < 4) {
-      setStep(step + 1);
+      transitionStep(step + 1, 'forward');
     } else {
       // Calculate daily sugar limit
       const calculation = calculateDailySugarLimit(
@@ -92,7 +152,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
 
   const handleBack = () => {
     if (step > 1) {
-      setStep(step - 1);
+      transitionStep(step - 1, 'backward');
     } else if (onBackToAuth) {
       onBackToAuth();
     }
@@ -133,18 +193,33 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
               </View>
             </View>
 
-            {/* Progress bar */}
+            {/* Progress bar with smooth animation */}
             <View style={styles.progressBarTrack}>
-              <View
+              <Animated.View
                 style={[
                   styles.progressBarFill,
-                  { width: `${step * 25}%` },
+                  {
+                    width: progressAnim.interpolate({
+                      inputRange: [0, 100],
+                      outputRange: ['0%', '100%'],
+                    }),
+                  },
                 ]}
               />
             </View>
           </View>
 
-          {/* Titles */}
+          {/* Animated Question Section with Smooth Slide & Fade */}
+          <Animated.View
+            style={[
+              styles.questionAnimatedContainer,
+              {
+                opacity: fadeAnim,
+                transform: [{ translateX: slideAnim }],
+              },
+            ]}
+          >
+            {/* Titles */}
           <View style={styles.titleSection}>
             <Text style={styles.sectionSubtitle}>Kenalan dulu, yuk!</Text>
             <Text style={styles.sectionTitle}>
@@ -444,6 +519,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
               </View>
             )}
           </View>
+        </Animated.View>
 
           {/* Navigation Buttons */}
           <View style={styles.bottomButtonsRow}>
@@ -479,6 +555,9 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
 };
 
 const styles = StyleSheet.create({
+  questionAnimatedContainer: {
+    width: '100%',
+  },
   safeArea: {
     flex: 1,
     backgroundColor: '#FFFDF7',
