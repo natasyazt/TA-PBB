@@ -192,27 +192,9 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Top Bar with Back Button & Brand Logo */}
-          <View style={styles.topBar}>
-            <TouchableOpacity
-              style={styles.topBackBtn}
-              activeOpacity={0.7}
-              onPress={() => handleSwitchMode(mode === 'signup' ? 'login' : 'signup')}
-            >
-              <Ionicons name="arrow-back" size={20} color="#403936" />
-            </TouchableOpacity>
-
-            <View style={styles.topLogoBadge}>
-              <Mascot status="optimal" size={26} />
-              <Text style={styles.topLogoText}>GulaMate</Text>
-            </View>
-
-            <View style={{ width: 38 }} />
-          </View>
-
           {/* Header & Animated Mascot */}
           <View style={styles.topSection}>
-            <Mascot status="optimal" size={120} />
+            <Mascot status="optimal" size={135} />
             <Text style={styles.appTitle}>GulaMate</Text>
             <Text style={styles.appTagline}>
               Monitoring Asupan Gula Harian untuk Mencegah Diabetes
@@ -424,43 +406,9 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 8,
+    paddingTop: 16,
     paddingBottom: 40,
     alignItems: 'center',
-  },
-  topBar: {
-    width: '100%',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  topBackBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#FAF5ED',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#EFE7DA',
-  },
-  topLogoBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#EFE7DA',
-    ...Shadows.soft,
-  },
-  topLogoText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#403936',
   },
   topSection: {
     alignItems: 'center',
