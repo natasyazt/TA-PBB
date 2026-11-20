@@ -13,15 +13,18 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { ExerciseFreq, Gender, UserProfile } from '../types';
 import { calculateDailySugarLimit } from '../utils/sugarCalculator';
+import { Mascot } from '../components/Mascot';
 
 interface OnboardingScreenProps {
   initialProfile?: Partial<UserProfile>;
   onComplete: (profile: UserProfile) => void;
+  onBackToAuth?: () => void;
 }
 
 export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
   initialProfile,
   onComplete,
+  onBackToAuth,
 }) => {
   const [step, setStep] = useState<number>(1);
 
@@ -90,6 +93,8 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
   const handleBack = () => {
     if (step > 1) {
       setStep(step - 1);
+    } else if (onBackToAuth) {
+      onBackToAuth();
     }
   };
 
@@ -108,9 +113,17 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerTop}>
+              <TouchableOpacity
+                style={styles.headerBackBtn}
+                activeOpacity={0.7}
+                onPress={handleBack}
+              >
+                <Ionicons name="arrow-back" size={20} color="#403936" />
+              </TouchableOpacity>
+
               <View style={styles.brandRow}>
                 <View style={styles.logoBadge}>
-                  <Text style={styles.logoText}>GM</Text>
+                  <Mascot status="optimal" size={32} />
                 </View>
                 <Text style={styles.brandName}>GulaMate</Text>
               </View>
@@ -168,7 +181,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
                 </View>
 
                 <View>
-                  <Text style={styles.fieldLabel}>Nama panggilan (untuk sapaan "Halo ...!")</Text>
+                  <Text style={styles.fieldLabel}>Nama panggilan</Text>
                   <TextInput
                     style={styles.textInput}
                     placeholder="Misalnya, Natasya"
@@ -434,15 +447,14 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
 
           {/* Navigation Buttons */}
           <View style={styles.bottomButtonsRow}>
-            {step > 1 && (
-              <TouchableOpacity
-                style={styles.backBtn}
-                activeOpacity={0.8}
-                onPress={handleBack}
-              >
-                <Text style={styles.backBtnText}>Kembali</Text>
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity
+              style={styles.backBtn}
+              activeOpacity={0.8}
+              onPress={handleBack}
+            >
+              <Ionicons name="arrow-back" size={16} color="#7D706A" />
+              <Text style={styles.backBtnText}>Kembali</Text>
+            </TouchableOpacity>
 
             <TouchableOpacity
               style={[
@@ -501,23 +513,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
+  headerBackBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#FAF5ED',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#EFE7DA',
+  },
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
   },
   logoBadge: {
     width: 38,
     height: 38,
     borderRadius: 14,
-    backgroundColor: '#A8E6CF',
+    backgroundColor: '#B8F2E6',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  logoText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#176E60',
+    overflow: 'hidden',
   },
   brandName: {
     fontSize: 20,

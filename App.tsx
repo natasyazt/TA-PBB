@@ -226,6 +226,13 @@ export default function App() {
             nickname: authUser.nickname || profile.nickname,
           }}
           onComplete={handleCompleteOnboarding}
+          onBackToAuth={() => {
+            setIsSigningUp(false);
+            setIsEditingProfile(false);
+            if (!profile.isOnboarded) {
+              setAuthUserState(null);
+            }
+          }}
         />
         <StatusBar style="dark" />
       </>
