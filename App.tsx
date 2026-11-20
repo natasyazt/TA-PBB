@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   StyleSheet,
   View,
@@ -7,6 +7,8 @@ import {
   SafeAreaView,
   ActivityIndicator,
   Platform,
+  Animated,
+  Easing,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -58,6 +60,65 @@ export default function App() {
     anonKey: '',
     isConnected: false,
   });
+
+  // Animation for smooth tab transitions (Home <-> Riwayat <-> Kalender <-> Profil)
+  const tabFadeAnim = useRef(new Animated.Value(1)).current;
+  const tabSlideAnim = useRef(new Animated.Value(0)).current;
+  const tabScaleAnim = useRef(new Animated.Value(1)).current;
+
+  // Animation for entering main dashboard from Login / Auth
+  const dashboardFadeAnim = useRef(new Animated.Value(0)).current;
+  const dashboardSlideAnim = useRef(new Animated.Value(20)).current;
+
+  // Trigger tab switch animation
+  useEffect(() => {
+    tabFadeAnim.setValue(0);
+    tabSlideAnim.setValue(12);
+    tabScaleAnim.setValue(0.985);
+
+    Animated.parallel([
+      Animated.timing(tabFadeAnim, {
+        toValue: 1,
+        duration: 250,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: Platform.OS !== 'web',
+      }),
+      Animated.timing(tabSlideAnim, {
+        toValue: 0,
+        duration: 250,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: Platform.OS !== 'web',
+      }),
+      Animated.timing(tabScaleAnim, {
+        toValue: 1,
+        duration: 250,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: Platform.OS !== 'web',
+      }),
+    ]).start();
+  }, [currentTab]);
+
+  // Trigger dashboard entrance animation on login
+  useEffect(() => {
+    if (authUser && profile?.isOnboarded && !isSigningUp && !isEditingProfile) {
+      dashboardFadeAnim.setValue(0);
+      dashboardSlideAnim.setValue(20);
+      Animated.parallel([
+        Animated.timing(dashboardFadeAnim, {
+          toValue: 1,
+          duration: 350,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: Platform.OS !== 'web',
+        }),
+        Animated.timing(dashboardSlideAnim, {
+          toValue: 0,
+          duration: 350,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: Platform.OS !== 'web',
+        }),
+      ]).start();
+    }
+  }, [authUser, profile?.isOnboarded, isSigningUp, isEditingProfile]);
 
   const loadData = useCallback(async () => {
     try {
@@ -243,60 +304,80 @@ export default function App() {
   const todayLogs = allLogs.filter((log) => log.date === activeDate);
 
   return (
-    <SafeAreaView style={styles.appContainer}>
-      <StatusBar style="dark" />
+    <Animated.View
+      style={[
+        styles.dashboardContainer,
+        {
+          opacity: dashboardFadeAnim,
+          transform: [{ translateY: dashboardSlideAnim }],
+        },
+      ]}
+    >
+      <SafeAreaView style={styles.appContainer}>
+        <StatusBar style="dark" />
 
-      {/* Screen Content */}
-      <View style={styles.screenContainer}>
-        {currentTab === 'home' && (
-          <HomeScreen
-            profile={profile}
-            todayLogs={todayLogs}
-            activeDate={activeDate}
-            virtualDate={activeDate}
-            onSelectDate={(newDate) => setActiveDate(newDate)}
-            onOpenAddModal={() => handleOpenAddForDate(activeDate)}
-            onDeleteLog={handleDeleteFood}
-            onRefresh={loadData}
-            onGoToSettings={() => setCurrentTab('profile')}
-            onOpenCalendar={() => setCurrentTab('calendar')}
-            onQuickLogWater={handleQuickLogWater}
-          />
-        )}
+        {/* Screen Content with Smooth Page Animation */}
+        <Animated.View
+          style={[
+            styles.screenContainer,
+            {
+              opacity: tabFadeAnim,
+              transform: [
+                { translateY: tabSlideAnim },
+                { scale: tabScaleAnim },
+              ],
+            },
+          ]}
+        >
+          {currentTab === 'home' && (
+            <HomeScreen
+              profile={profile}
+              todayLogs={todayLogs}
+              activeDate={activeDate}
+              virtualDate={activeDate}
+              onSelectDate={(newDate) => setActiveDate(newDate)}
+              onOpenAddModal={() => handleOpenAddForDate(activeDate)}
+              onDeleteLog={handleDeleteFood}
+              onRefresh={loadData}
+              onGoToSettings={() => setCurrentTab('profile')}
+              onOpenCalendar={() => setCurrentTab('calendar')}
+              onQuickLogWater={handleQuickLogWater}
+            />
+          )}
 
-        {currentTab === 'stats' && (
-          <StatsScreen
-            profile={profile}
-            allLogs={allLogs}
-            activeDate={activeDate}
-            onSelectDay={(date) => {
-              setActiveDate(date);
-              setCurrentTab('home');
-            }}
-          />
-        )}
+          {currentTab === 'stats' && (
+            <StatsScreen
+              profile={profile}
+              allLogs={allLogs}
+              activeDate={activeDate}
+              onSelectDay={(date) => {
+                setActiveDate(date);
+                setCurrentTab('home');
+              }}
+            />
+          )}
 
-        {currentTab === 'calendar' && (
-          <CalendarScreen
-            profile={profile}
-            allLogs={allLogs}
-            activeDate={activeDate}
-            onOpenAddModalForDate={handleOpenAddForDate}
-            onDeleteLog={handleDeleteFood}
-          />
-        )}
+          {currentTab === 'calendar' && (
+            <CalendarScreen
+              profile={profile}
+              allLogs={allLogs}
+              activeDate={activeDate}
+              onOpenAddModalForDate={handleOpenAddForDate}
+              onDeleteLog={handleDeleteFood}
+            />
+          )}
 
-        {currentTab === 'profile' && (
-          <ProfileScreen
-            profile={profile}
-            activeDate={activeDate}
-            onEditProfile={() => setIsEditingProfile(true)}
-            onResetAllData={handleResetData}
-            onLogout={handleLogout}
-            onUpdateProfile={handleUpdateProfile}
-          />
-        )}
-      </View>
+          {currentTab === 'profile' && (
+            <ProfileScreen
+              profile={profile}
+              activeDate={activeDate}
+              onEditProfile={() => setIsEditingProfile(true)}
+              onResetAllData={handleResetData}
+              onLogout={handleLogout}
+              onUpdateProfile={handleUpdateProfile}
+            />
+          )}
+        </Animated.View>
 
       {/* Symmetrical Bottom Navigation Bar (2 Left, Center FAB, 2 Right) */}
       <View style={styles.bottomNavContainer}>
@@ -438,10 +519,15 @@ export default function App() {
         onAddFood={handleAddFood}
       />
     </SafeAreaView>
+  </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
+  dashboardContainer: {
+    flex: 1,
+    backgroundColor: '#FFFDF7',
+  },
   appContainer: {
     flex: 1,
     backgroundColor: '#FFFDF7',

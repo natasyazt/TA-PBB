@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,8 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
+  Animated,
+  Easing,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Shadows } from '../constants/colors';
@@ -34,6 +36,32 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Animated mode switch
+  const formFadeAnim = useRef(new Animated.Value(1)).current;
+  const formSlideAnim = useRef(new Animated.Value(0)).current;
+
+  const handleSwitchMode = (newMode: 'login' | 'signup') => {
+    if (newMode === mode) return;
+    setErrorMsg('');
+    formFadeAnim.setValue(0);
+    formSlideAnim.setValue(newMode === 'login' ? -15 : 15);
+    setMode(newMode);
+    Animated.parallel([
+      Animated.timing(formFadeAnim, {
+        toValue: 1,
+        duration: 240,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: Platform.OS !== 'web',
+      }),
+      Animated.timing(formSlideAnim, {
+        toValue: 0,
+        duration: 240,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: Platform.OS !== 'web',
+      }),
+    ]).start();
+  };
 
   // Password validation checks
   const hasMinLength = password.length >= 6;
@@ -180,14 +208,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
             <TouchableOpacity
               style={styles.topBackBtn}
               activeOpacity={0.7}
-              onPress={() => {
-                if (mode === 'signup') {
-                  setMode('login');
-                } else {
-                  setMode('signup');
-                }
-                setErrorMsg('');
-              }}
+              onPress={() => handleSwitchMode(mode === 'signup' ? 'login' : 'signup')}
             >
               <Ionicons name="arrow-back" size={20} color="#403936" />
             </TouchableOpacity>
@@ -197,7 +218,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               <Text style={styles.topLogoText}>GulaMate</Text>
             </View>
 
-            <View style={{ width: 36 }} />
+            <View style={{ width: 38 }} />
           </View>
 
           {/* Header & Animated Mascot */}
@@ -217,10 +238,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                 mode === 'signup' && styles.segmentBtnActive,
               ]}
               activeOpacity={0.8}
-              onPress={() => {
-                setMode('signup');
-                setErrorMsg('');
-              }}
+              onPress={() => handleSwitchMode('signup')}
             >
               <Text
                 style={[
@@ -238,10 +256,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                 mode === 'login' && styles.segmentBtnActive,
               ]}
               activeOpacity={0.8}
-              onPress={() => {
-                setMode('login');
-                setErrorMsg('');
-              }}
+              onPress={() => handleSwitchMode('login')}
             >
               <Text
                 style={[
@@ -254,8 +269,17 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
             </TouchableOpacity>
           </View>
 
-          {/* Form Card */}
-          <View style={[styles.formCard, Shadows.card]}>
+          {/* Form Card with Smooth Transition Animation */}
+          <Animated.View
+            style={[
+              styles.formCard,
+              Shadows.card,
+              {
+                opacity: formFadeAnim,
+                transform: [{ translateX: formSlideAnim }],
+              },
+            ]}
+          >
             <Text style={styles.formTitle}>
               {mode === 'signup'
                 ? 'Mulai Perjalanan Hidup Sehatmu'
@@ -409,7 +433,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               <Ionicons name="flash-outline" size={16} color={Colors.primaryDark} />
               <Text style={styles.guestBtnText}>Masuk sebagai Tamu</Text>
             </TouchableOpacity>
-          </View>
+          </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
