@@ -448,26 +448,17 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
           {/* Navigation Buttons */}
           <View style={styles.bottomButtonsRow}>
             <TouchableOpacity
-              style={styles.backBtn}
-              activeOpacity={0.8}
-              onPress={handleBack}
-            >
-              <Ionicons name="arrow-back" size={16} color="#7D706A" />
-              <Text style={styles.backBtnText}>Kembali</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
               style={[
                 styles.nextBtn,
                 !canContinue && styles.nextBtnDisabled,
                 { flex: 1 },
               ]}
-              activeOpacity={0.8}
+              activeOpacity={0.85}
               disabled={!canContinue}
               onPress={handleNext}
             >
               <Text style={styles.nextBtnText}>
-                {step === 4 ? 'Mulai bersama Mimo' : 'Lanjut'}
+                {step === 4 ? 'Hitung Batas Gulaku ✨' : 'Lanjut'}
               </Text>
               <Ionicons
                 name={step === 4 ? 'sparkles' : 'arrow-forward'}
@@ -517,11 +508,16 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#FAF5ED',
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#EFE7DA',
+    shadowColor: 'rgba(83, 65, 56, 0.08)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   brandRow: {
     flexDirection: 'row',
