@@ -182,17 +182,6 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     }
   };
 
-  const handleGuestMode = async () => {
-    const guestUser = {
-      email: 'tamu@gulamate.id',
-      id: 'guest_' + Date.now(),
-      name: 'Tamu Sehat',
-      nickname: 'Tamu',
-    };
-    await setAuthUser(guestUser);
-    onStartSignUp(guestUser);
-  };
-
   return (
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView
@@ -418,21 +407,6 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                 </Text>
               )}
             </TouchableOpacity>
-
-            <View style={styles.dividerRow}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>atau</Text>
-              <View style={styles.dividerLine} />
-            </View>
-
-            <TouchableOpacity
-              style={styles.guestBtn}
-              activeOpacity={0.8}
-              onPress={handleGuestMode}
-            >
-              <Ionicons name="flash-outline" size={16} color={Colors.primaryDark} />
-              <Text style={styles.guestBtnText}>Masuk sebagai Tamu</Text>
-            </TouchableOpacity>
           </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -640,37 +614,5 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
     color: '#FFFFFF',
-  },
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 16,
-    gap: 10,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#F0E8DD',
-  },
-  dividerText: {
-    fontSize: 12,
-    color: Colors.textMuted,
-    fontWeight: '600',
-  },
-  guestBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFF5F7',
-    paddingVertical: 12,
-    borderRadius: 18,
-    borderWidth: 1.5,
-    borderColor: '#FFD1DC',
-    gap: 8,
-  },
-  guestBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: Colors.primaryDark,
   },
 });
