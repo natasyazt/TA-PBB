@@ -278,8 +278,20 @@ export const MimoChatModal: React.FC<MimoChatModalProps> = ({
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(64, 57, 54, 0.4)',
+    backgroundColor: 'rgba(40, 32, 28, 0.48)',
     justifyContent: 'flex-end',
+    ...(Platform.OS === 'web'
+      ? ({
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          width: '100vw',
+          height: '100vh',
+          zIndex: 99999,
+        } as any)
+      : {}),
   },
   sheetContainer: {
     backgroundColor: '#FFFDF7',

@@ -304,17 +304,18 @@ export default function App() {
   const todayLogs = allLogs.filter((log) => log.date === activeDate);
 
   return (
-    <Animated.View
-      style={[
-        styles.dashboardContainer,
-        {
-          opacity: dashboardFadeAnim,
-          transform: [{ translateY: dashboardSlideAnim }],
-        },
-      ]}
-    >
-      <SafeAreaView style={styles.appContainer}>
-        <StatusBar style="dark" />
+    <View style={styles.rootWrapper}>
+      <Animated.View
+        style={[
+          styles.dashboardContainer,
+          {
+            opacity: dashboardFadeAnim,
+            transform: [{ translateY: dashboardSlideAnim }],
+          },
+        ]}
+      >
+        <SafeAreaView style={styles.appContainer}>
+          <StatusBar style="dark" />
 
         {/* Screen Content with Smooth Page Animation */}
         <Animated.View
@@ -510,20 +511,25 @@ export default function App() {
           </TouchableOpacity>
         </View>
       </View>
-
-      {/* Add Food Modal with AI Auto-Estimation */}
-      <AddFoodModal
-        visible={isAddModalOpen}
-        targetDate={targetAddDate || activeDate}
-        onClose={() => setIsAddModalOpen(false)}
-        onAddFood={handleAddFood}
-      />
     </SafeAreaView>
   </Animated.View>
+
+  {/* Add Food Modal with AI Auto-Estimation placed outside any transformed ancestor */}
+  <AddFoodModal
+    visible={isAddModalOpen}
+    targetDate={targetAddDate || activeDate}
+    onClose={() => setIsAddModalOpen(false)}
+    onAddFood={handleAddFood}
+  />
+</View>
   );
 }
 
 const styles = StyleSheet.create({
+  rootWrapper: {
+    flex: 1,
+    backgroundColor: '#FFFDF7',
+  },
   dashboardContainer: {
     flex: 1,
     backgroundColor: '#FFFDF7',

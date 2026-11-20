@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, Platform } from 'react-native';
 import { Colors, Shadows } from '../constants/colors';
 
 interface ConfirmationModalProps {
@@ -63,6 +63,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
+    ...(Platform.OS === 'web'
+      ? ({
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          width: '100vw',
+          height: '100vh',
+          zIndex: 99999,
+        } as any)
+      : {}),
   },
   dialog: {
     width: '100%',

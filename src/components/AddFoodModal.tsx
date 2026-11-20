@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,8 @@ import {
   Platform,
   TouchableWithoutFeedback,
   ActivityIndicator,
+  Animated,
+  Easing,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { FOOD_CATALOG } from '../constants/foodCatalog';
@@ -66,6 +68,54 @@ export const AddFoodModal: React.FC<AddFoodModalProps> = ({
   // Manual Tab State (Murni polos tanpa AI)
   const [pureManualName, setPureManualName] = useState('');
   const [pureManualSugar, setPureManualSugar] = useState('');
+
+  // Animation & Visibility states
+  const [modalVisible, setModalVisible] = useState(visible);
+  const backdropAnim = useRef(new Animated.Value(0)).current;
+  const sheetSlideAnim = useRef(new Animated.Value(450)).current;
+  const isClosingRef = useRef(false);
+
+  useEffect(() => {
+    if (visible) {
+      isClosingRef.current = false;
+      setModalVisible(true);
+      backdropAnim.setValue(0);
+      sheetSlideAnim.setValue(450);
+      Animated.parallel([
+        Animated.timing(backdropAnim, {
+          toValue: 1,
+          duration: 260,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: Platform.OS !== 'web',
+        }),
+        Animated.timing(sheetSlideAnim, {
+          toValue: 0,
+          duration: 280,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: Platform.OS !== 'web',
+        }),
+      ]).start();
+    } else if (modalVisible && !isClosingRef.current) {
+      isClosingRef.current = true;
+      Animated.parallel([
+        Animated.timing(backdropAnim, {
+          toValue: 0,
+          duration: 200,
+          easing: Easing.in(Easing.cubic),
+          useNativeDriver: Platform.OS !== 'web',
+        }),
+        Animated.timing(sheetSlideAnim, {
+          toValue: 450,
+          duration: 200,
+          easing: Easing.in(Easing.cubic),
+          useNativeDriver: Platform.OS !== 'web',
+        }),
+      ]).start(() => {
+        setModalVisible(false);
+        isClosingRef.current = false;
+      });
+    }
+  }, [visible]);
 
   const filteredFoods = FOOD_CATALOG.filter((item) =>
     item.name.toLowerCase().includes(search.toLowerCase())
@@ -135,13 +185,32 @@ export const AddFoodModal: React.FC<AddFoodModalProps> = ({
   };
 
   const handleClose = () => {
-    setSearch('');
-    setAiInputText('');
-    setAiResult(null);
-    setPureManualName('');
-    setPureManualSugar('');
-    setTab('katalog');
-    onClose();
+    if (isClosingRef.current) return;
+    isClosingRef.current = true;
+    Animated.parallel([
+      Animated.timing(backdropAnim, {
+        toValue: 0,
+        duration: 200,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: Platform.OS !== 'web',
+      }),
+      Animated.timing(sheetSlideAnim, {
+        toValue: 450,
+        duration: 200,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: Platform.OS !== 'web',
+      }),
+    ]).start(() => {
+      setModalVisible(false);
+      isClosingRef.current = false;
+      onClose();
+      setSearch('');
+      setAiInputText('');
+      setAiResult(null);
+      setPureManualName('');
+      setPureManualSugar('');
+      setTab('katalog');
+    });
   };
 
   const formattedDate = targetDate
@@ -149,27 +218,50 @@ export const AddFoodModal: React.FC<AddFoodModalProps> = ({
     : 'Hari ini';
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
-      <TouchableWithoutFeedback onPress={handleClose}>
-        <View style={styles.modalOverlay}>
-          <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-            <KeyboardAvoidingView
-              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-              style={styles.sheetContainer}
-            >
-              {/* Handle bar */}
-              <View style={styles.handleBar} />
+    <Modal
+      visible={modalVisible}
+      transparent
+      animationType="none"
+      onRequestClose={handleClose}
+      statusBarTranslucent
+    >
+      <View style={styles.modalRoot}>
+        {/* Fullscreen Backdrop Overlay with Smooth Fade */}
+        <TouchableWithoutFeedback onPress={handleClose}>
+          <Animated.View
+            style={[
+              styles.backdropOverlay,
+              { opacity: backdropAnim },
+            ]}
+          />
+        </TouchableWithoutFeedback>
 
-              {/* Header */}
-              <View style={styles.header}>
-                <View>
-                  <Text style={styles.dateSubtitle}>{formattedDate}</Text>
-                  <Text style={styles.sheetTitle}>Tambah asupan</Text>
-                </View>
-                <TouchableOpacity style={styles.closeBtn} activeOpacity={0.7} onPress={handleClose}>
-                  <Ionicons name="close" size={20} color="#766A64" />
-                </TouchableOpacity>
+        {/* Animated Bottom Sheet with Smooth Slide-Up */}
+        <Animated.View
+          style={[
+            styles.sheetContainer,
+            {
+              transform: [{ translateY: sheetSlideAnim }],
+            },
+          ]}
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={styles.keyboardContainer}
+          >
+            {/* Handle bar */}
+            <View style={styles.handleBar} />
+
+            {/* Header */}
+            <View style={styles.header}>
+              <View>
+                <Text style={styles.dateSubtitle}>{formattedDate}</Text>
+                <Text style={styles.sheetTitle}>Tambah asupan</Text>
               </View>
+              <TouchableOpacity style={styles.closeBtn} activeOpacity={0.7} onPress={handleClose}>
+                <Ionicons name="close" size={20} color="#766A64" />
+              </TouchableOpacity>
+            </View>
 
               {/* 3 Segmented Control Tabs */}
               <View style={styles.tabBar}>
@@ -394,18 +486,53 @@ export const AddFoodModal: React.FC<AddFoodModalProps> = ({
                 </ScrollView>
               )}
             </KeyboardAvoidingView>
-          </TouchableWithoutFeedback>
+          </Animated.View>
         </View>
-      </TouchableWithoutFeedback>
-    </Modal>
+      </Modal>
   );
 };
 
 const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(64, 57, 54, 0.4)',
+  modalRoot: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     justifyContent: 'flex-end',
+    zIndex: 99999,
+    ...(Platform.OS === 'web'
+      ? ({
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          width: '100vw',
+          height: '100vh',
+          pointerEvents: 'box-none',
+        } as any)
+      : {}),
+  },
+  backdropOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(32, 24, 20, 0.48)',
+    ...(Platform.OS === 'web'
+      ? ({
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          width: '100vw',
+          height: '100vh',
+          cursor: 'pointer',
+        } as any)
+      : {}),
   },
   sheetContainer: {
     backgroundColor: '#FFFDF7',
@@ -414,10 +541,17 @@ const styles = StyleSheet.create({
     maxHeight: '90%',
     paddingBottom: Platform.OS === 'ios' ? 34 : 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
-    elevation: 20,
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.16,
+    shadowRadius: 20,
+    elevation: 24,
+    zIndex: 100000,
+    width: '100%',
+    maxWidth: 580,
+    alignSelf: 'center',
+  },
+  keyboardContainer: {
+    width: '100%',
   },
   handleBar: {
     width: 48,

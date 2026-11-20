@@ -81,7 +81,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
         return;
       }
       if (!nickname.trim()) {
-        setErrorMsg('Mohon masukkan nama panggilanmu untuk sapaan.');
+        setErrorMsg('Mohon masukkan nama panggilanmu.');
         return;
       }
     }
