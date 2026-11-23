@@ -8,7 +8,18 @@ const KEYS = {
   PROFILE: '@GulaMate:profile',
   LOGS: '@GulaMate:logs',
   AUTH_USER: '@GulaMate:auth_user',
+  REGISTERED_ACCOUNTS: '@GulaMate:registered_accounts',
 };
+
+export interface RegisteredAccount {
+  id: string;
+  email: string;
+  password: string;
+  name: string;
+  nickname?: string;
+  createdAt: string;
+  profile?: UserProfile;
+}
 
 const DEFAULT_PROFILE: UserProfile = {
   id: 'user_default',
@@ -45,12 +56,85 @@ export async function getAuthUser(): Promise<{ email: string; id: string } | nul
   return null;
 }
 
-export async function setAuthUser(user: { email: string; id: string } | null): Promise<void> {
+export async function setAuthUser(user: { email: string; id: string; name?: string; nickname?: string } | null): Promise<void> {
   if (user) {
     await AsyncStorage.setItem(KEYS.AUTH_USER, JSON.stringify(user));
   } else {
     await AsyncStorage.removeItem(KEYS.AUTH_USER);
   }
+}
+
+/**
+ * Account persistence for reliable multi-session authentication
+ */
+export async function getRegisteredAccounts(): Promise<RegisteredAccount[]> {
+  try {
+    const json = await AsyncStorage.getItem(KEYS.REGISTERED_ACCOUNTS);
+    if (json) {
+      return JSON.parse(json);
+    }
+  } catch (e) {
+    console.warn('Error reading registered accounts:', e);
+  }
+  return [];
+}
+
+export async function findRegisteredAccount(email: string): Promise<RegisteredAccount | null> {
+  const accounts = await getRegisteredAccounts();
+  const normalized = email.trim().toLowerCase();
+  return accounts.find((acc) => acc.email.trim().toLowerCase() === normalized) || null;
+}
+
+export async function saveRegisteredAccount(account: RegisteredAccount): Promise<void> {
+  try {
+    const accounts = await getRegisteredAccounts();
+    const normalized = account.email.trim().toLowerCase();
+    const index = accounts.findIndex((a) => a.email.trim().toLowerCase() === normalized);
+
+    if (index >= 0) {
+      accounts[index] = {
+        ...accounts[index],
+        ...account,
+        profile: account.profile || accounts[index].profile,
+      };
+    } else {
+      accounts.push(account);
+    }
+
+    await AsyncStorage.setItem(KEYS.REGISTERED_ACCOUNTS, JSON.stringify(accounts));
+  } catch (e) {
+    console.warn('Error saving registered account:', e);
+  }
+}
+
+export async function updateAccountProfile(email: string, profile: UserProfile): Promise<void> {
+  try {
+    const accounts = await getRegisteredAccounts();
+    const normalized = email.trim().toLowerCase();
+    const index = accounts.findIndex((a) => a.email.trim().toLowerCase() === normalized);
+
+    if (index >= 0) {
+      accounts[index].profile = profile;
+      if (profile.name) accounts[index].name = profile.name;
+      if (profile.nickname) accounts[index].nickname = profile.nickname;
+      await AsyncStorage.setItem(KEYS.REGISTERED_ACCOUNTS, JSON.stringify(accounts));
+    }
+  } catch (e) {
+    console.warn('Error updating account profile:', e);
+  }
+}
+
+export async function getExistingProfileByEmail(email: string): Promise<UserProfile | null> {
+  try {
+    const json = await AsyncStorage.getItem(KEYS.PROFILE);
+    if (json) {
+      const p: UserProfile = JSON.parse(json);
+      if (p.email && p.email.trim().toLowerCase() === email.trim().toLowerCase()) {
+        return p;
+      }
+    }
+  } catch (e) {}
+  return null;
 }
 
 /**

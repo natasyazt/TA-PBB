@@ -17,7 +17,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Shadows } from '../constants/colors';
 import { Mascot } from '../components/Mascot';
 import { getClient } from '../services/supabase';
-import { setAuthUser } from '../services/storage';
+import {
+  setAuthUser,
+  findRegisteredAccount,
+  saveRegisteredAccount,
+  getExistingProfileByEmail,
+  RegisteredAccount,
+} from '../services/storage';
 
 interface AuthScreenProps {
   onSuccessLogin: (user: { email: string; id: string; name?: string; nickname?: string }) => void;
@@ -93,32 +99,54 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
       return;
     }
 
+    const normalizedEmail = email.trim().toLowerCase();
     setIsLoading(true);
     const supabase = getClient();
 
     try {
       if (mode === 'signup') {
-        // Sign up logic
+        // 1. Check if email is already registered locally
+        const existingLocal = await findRegisteredAccount(normalizedEmail);
+        if (existingLocal) {
+          setErrorMsg('Email ini sudah terdaftar. Silakan pilih tab "Masuk" untuk login.');
+          setIsLoading(false);
+          return;
+        }
+
         let userId = 'user_' + Date.now();
         if (supabase) {
-          const { data, error } = await supabase.auth.signUp({
-            email: email.trim(),
-            password: password,
-            options: {
-              data: {
-                name: fullName.trim(),
+          try {
+            const { data, error } = await supabase.auth.signUp({
+              email: normalizedEmail,
+              password: password,
+              options: {
+                data: {
+                  name: fullName.trim(),
+                },
               },
-            },
-          });
-          if (error) {
-            console.warn('Supabase auth notice:', error.message);
-          } else if (data.user) {
-            userId = data.user.id;
+            });
+            if (data?.user?.id) {
+              userId = data.user.id;
+            } else if (error) {
+              console.warn('Supabase auth notice (using local storage fallback):', error.message);
+            }
+          } catch (sbErr) {
+            console.warn('Supabase connection notice:', sbErr);
           }
         }
 
+        // Always save account locally so user can always log back in reliably
+        const newAccount: RegisteredAccount = {
+          id: userId,
+          email: normalizedEmail,
+          password: password,
+          name: fullName.trim(),
+          createdAt: new Date().toISOString(),
+        };
+        await saveRegisteredAccount(newAccount);
+
         const authData = {
-          email: email.trim(),
+          email: normalizedEmail,
           id: userId,
           name: fullName.trim(),
           nickname: '',
@@ -127,52 +155,137 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
         setIsLoading(false);
         onStartSignUp(authData);
       } else {
-        // Login logic
-        let userId = 'user_default';
-        let userName = 'Teman Manis';
-        let userNick = 'Manis';
-
-        if (supabase) {
-          const { data, error } = await supabase.auth.signInWithPassword({
-            email: email.trim(),
-            password: password,
-          });
-          if (error && error.message.includes('Invalid login credentials')) {
-            setErrorMsg('Email atau kata sandi tidak cocok.');
+        // Mode === 'login'
+        // Step 1: Check local registered accounts
+        const localAccount = await findRegisteredAccount(normalizedEmail);
+        if (localAccount) {
+          if (localAccount.password !== password) {
+            setErrorMsg('Kata sandi salah. Silakan coba lagi.');
             setIsLoading(false);
             return;
-          } else if (data.user) {
-            userId = data.user.id;
-            userName = data.user.user_metadata?.name || 'Teman Manis';
-            userNick = data.user.user_metadata?.nickname || userName.split(' ')[0] || 'Manis';
+          }
+
+          // Silent background sync with Supabase session if online
+          if (supabase) {
+            supabase.auth.signInWithPassword({
+              email: normalizedEmail,
+              password: password,
+            }).catch(() => {});
+          }
+
+          const authData = {
+            email: localAccount.email,
+            id: localAccount.id,
+            name: localAccount.name,
+            nickname: localAccount.nickname || (localAccount.name ? localAccount.name.split(' ')[0] : 'Manis'),
+          };
+          await setAuthUser(authData);
+          setIsLoading(false);
+          onSuccessLogin(authData);
+          return;
+        }
+
+        // Step 2: Check if this user previously registered on this device (migration fallback)
+        const previousProfile = await getExistingProfileByEmail(normalizedEmail);
+        if (previousProfile) {
+          const migratedAccount: RegisteredAccount = {
+            id: previousProfile.id || ('user_' + Date.now()),
+            email: normalizedEmail,
+            password: password,
+            name: previousProfile.name || 'Teman Manis',
+            nickname: previousProfile.nickname || 'Manis',
+            createdAt: new Date().toISOString(),
+            profile: previousProfile,
+          };
+          await saveRegisteredAccount(migratedAccount);
+
+          const authData = {
+            email: normalizedEmail,
+            id: migratedAccount.id,
+            name: migratedAccount.name,
+            nickname: migratedAccount.nickname,
+          };
+          await setAuthUser(authData);
+          setIsLoading(false);
+          onSuccessLogin(authData);
+          return;
+        }
+
+        // Step 3: Check Supabase online authentication
+        if (supabase) {
+          try {
+            const { data, error } = await supabase.auth.signInWithPassword({
+              email: normalizedEmail,
+              password: password,
+            });
+
+            if (data?.user) {
+              const userName = data.user.user_metadata?.name || 'Teman Manis';
+              const userNick = data.user.user_metadata?.nickname || userName.split(' ')[0] || 'Manis';
+
+              const newAccount: RegisteredAccount = {
+                id: data.user.id,
+                email: normalizedEmail,
+                password: password,
+                name: userName,
+                nickname: userNick,
+                createdAt: new Date().toISOString(),
+              };
+              await saveRegisteredAccount(newAccount);
+
+              const authData = {
+                email: normalizedEmail,
+                id: data.user.id,
+                name: userName,
+                nickname: userNick,
+              };
+              await setAuthUser(authData);
+              setIsLoading(false);
+              onSuccessLogin(authData);
+              return;
+            }
+
+            if (error) {
+              if (error.message.includes('Invalid login credentials')) {
+                setErrorMsg('Email atau kata sandi tidak cocok.');
+                setIsLoading(false);
+                return;
+              }
+              if (error.message.includes('Email not confirmed')) {
+                // Email unconfirmed on Supabase free tier, but credentials matched
+                const newAccount: RegisteredAccount = {
+                  id: 'user_' + Date.now(),
+                  email: normalizedEmail,
+                  password: password,
+                  name: 'Teman Manis',
+                  nickname: 'Manis',
+                  createdAt: new Date().toISOString(),
+                };
+                await saveRegisteredAccount(newAccount);
+                const authData = {
+                  email: normalizedEmail,
+                  id: newAccount.id,
+                  name: newAccount.name,
+                  nickname: newAccount.nickname,
+                };
+                await setAuthUser(authData);
+                setIsLoading(false);
+                onSuccessLogin(authData);
+                return;
+              }
+            }
+          } catch (sbErr) {
+            console.warn('Supabase signIn notice:', sbErr);
           }
         }
 
-        const authData = {
-          email: email.trim(),
-          id: userId,
-          name: userName,
-          nickname: userNick,
-        };
-        await setAuthUser(authData);
+        // Step 4: Not found anywhere
+        setErrorMsg('Akun dengan email ini belum terdaftar. Silakan pilih tab "Daftar Akun Baru".');
         setIsLoading(false);
-        onSuccessLogin(authData);
       }
     } catch (e: any) {
       setIsLoading(false);
-      // Fallback for seamless offline demo
-      const fallbackUser = {
-        email: email.trim(),
-        id: 'user_' + Date.now(),
-        name: fullName.trim() || 'Teman Manis',
-        nickname: fullName.trim() ? fullName.trim().split(' ')[0] : 'Manis',
-      };
-      await setAuthUser(fallbackUser);
-      if (mode === 'signup') {
-        onStartSignUp(fallbackUser);
-      } else {
-        onSuccessLogin(fallbackUser);
-      }
+      setErrorMsg('Terjadi kesalahan saat memproses autentikasi. Silakan coba lagi.');
     }
   };
 

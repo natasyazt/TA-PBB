@@ -24,6 +24,8 @@ import {
   addFoodLog,
   deleteFoodLog,
   resetAllData,
+  findRegisteredAccount,
+  updateAccountProfile,
 } from './src/services/storage';
 import { initSupabase, getSupabaseConfig } from './src/services/supabase';
 import { AuthScreen } from './src/screens/AuthScreen';
@@ -155,17 +157,23 @@ export default function App() {
     nickname?: string;
   }) => {
     setAuthUserState(user);
-    const existingProfile = await getUserProfile();
-    if (user.name && user.name !== 'Teman Manis') {
-      existingProfile.name = user.name;
+    const account = await findRegisteredAccount(user.email);
+    if (account?.profile && account.profile.isOnboarded) {
+      await saveUserProfile(account.profile);
+      setProfile(account.profile);
+    } else {
+      const existingProfile = await getUserProfile();
+      if (user.name && user.name !== 'Teman Manis') {
+        existingProfile.name = user.name;
+      }
+      if (user.nickname) {
+        existingProfile.nickname = user.nickname;
+      }
+      existingProfile.email = user.email;
+      existingProfile.id = user.id;
+      await saveUserProfile(existingProfile);
+      setProfile(existingProfile);
     }
-    if (user.nickname) {
-      existingProfile.nickname = user.nickname;
-    }
-    existingProfile.email = user.email;
-    existingProfile.id = user.id;
-    await saveUserProfile(existingProfile);
-    setProfile(existingProfile);
     setIsSigningUp(false);
   };
 
@@ -189,6 +197,9 @@ export default function App() {
     }
     newProfile.isOnboarded = true;
     await saveUserProfile(newProfile);
+    if (authUser?.email) {
+      await updateAccountProfile(authUser.email, newProfile);
+    }
     setProfile(newProfile);
     setIsSigningUp(false);
     setIsEditingProfile(false);
