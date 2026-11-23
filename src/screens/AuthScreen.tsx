@@ -32,7 +32,6 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
-  const [nickname, setNickname] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -80,10 +79,6 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
         setErrorMsg('Mohon masukkan nama lengkapmu.');
         return;
       }
-      if (!nickname.trim()) {
-        setErrorMsg('Mohon masukkan nama panggilanmu.');
-        return;
-      }
     }
     if (!hasMinLength) {
       setErrorMsg('Kata sandi harus minimal 6 karakter.');
@@ -112,7 +107,6 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
             options: {
               data: {
                 name: fullName.trim(),
-                nickname: nickname.trim(),
               },
             },
           });
@@ -127,7 +121,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
           email: email.trim(),
           id: userId,
           name: fullName.trim(),
-          nickname: nickname.trim(),
+          nickname: '',
         };
         await setAuthUser(authData);
         setIsLoading(false);
@@ -171,7 +165,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
         email: email.trim(),
         id: 'user_' + Date.now(),
         name: fullName.trim() || 'Teman Manis',
-        nickname: nickname.trim() || (fullName.trim() ? fullName.trim().split(' ')[0] : 'Manis'),
+        nickname: fullName.trim() ? fullName.trim().split(' ')[0] : 'Manis',
       };
       await setAuthUser(fallbackUser);
       if (mode === 'signup') {
@@ -270,35 +264,19 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
             )}
 
             {mode === 'signup' && (
-              <>
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Nama Lengkap</Text>
-                  <View style={styles.inputWrapper}>
-                    <Ionicons name="person-outline" size={18} color={Colors.textMuted} />
-                    <TextInput
-                      style={styles.input}
-                      placeholder="Misal: Natasya Zahra"
-                      placeholderTextColor={Colors.textMuted}
-                      value={fullName}
-                      onChangeText={setFullName}
-                    />
-                  </View>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Nama Lengkap</Text>
+                <View style={styles.inputWrapper}>
+                  <Ionicons name="person-outline" size={18} color={Colors.textMuted} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Misal: Natasya Zahirah"
+                    placeholderTextColor={Colors.textMuted}
+                    value={fullName}
+                    onChangeText={setFullName}
+                  />
                 </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Nama Panggilan</Text>
-                  <View style={styles.inputWrapper}>
-                    <Ionicons name="sparkles-outline" size={18} color={Colors.primaryDark} />
-                    <TextInput
-                      style={styles.input}
-                      placeholder="Misal: Natasya, Tasya, Rara"
-                      placeholderTextColor={Colors.textMuted}
-                      value={nickname}
-                      onChangeText={setNickname}
-                    />
-                  </View>
-                </View>
-              </>
+              </View>
             )}
 
             <View style={styles.inputGroup}>

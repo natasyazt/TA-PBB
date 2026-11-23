@@ -52,12 +52,12 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
   // Slide & Fade animation states
   const slideAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(1)).current;
-  const progressAnim = useRef(new Animated.Value(25)).current;
+  const progressAnim = useRef(new Animated.Value(20)).current;
   const isTransitioningRef = useRef(false);
 
   useEffect(() => {
     Animated.timing(progressAnim, {
-      toValue: step * 25,
+      toValue: step * 20,
       duration: 320,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: false,
@@ -65,7 +65,11 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
   }, [step]);
 
   const canContinue =
-    step !== 1 || (name.trim().length >= 2 && parseInt(age, 10) >= 10);
+    step === 1
+      ? name.trim().length >= 2 && parseInt(age, 10) >= 10
+      : step === 5
+      ? nickname.trim().length >= 1
+      : true;
 
   const transitionStep = (newStep: number, direction: 'forward' | 'backward') => {
     if (isTransitioningRef.current) return;
@@ -111,7 +115,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
   };
 
   const handleNext = () => {
-    if (step < 4) {
+    if (step < 5) {
       transitionStep(step + 1, 'forward');
     } else {
       // Calculate daily sugar limit
@@ -189,7 +193,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
               </View>
 
               <View style={styles.stepBadge}>
-                <Text style={styles.stepBadgeText}>{step} dari 4</Text>
+                <Text style={styles.stepBadgeText}>{step} dari 5</Text>
               </View>
             </View>
 
@@ -221,22 +225,27 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
           >
             {/* Titles */}
           <View style={styles.titleSection}>
-            <Text style={styles.sectionSubtitle}>Kenalan dulu, yuk!</Text>
+            <Text style={styles.sectionSubtitle}>
+              {step <= 4 ? 'Kuesioner Kesehatan' : 'Satu Langkah Terakhir! ✨'}
+            </Text>
             <Text style={styles.sectionTitle}>
               {step === 1 && 'Boleh tahu tentang kamu?'}
               {step === 2 && 'Cerita sedikit soal keluarga'}
               {step === 3 && 'Seberapa aktif harimu?'}
-              {step === 4 && 'Satu hal terakhir!'}
+              {step === 4 && 'Program diet saat ini'}
+              {step === 5 && 'Bagaimana Mimo memanggilmu?'}
             </Text>
             <Text style={styles.sectionDesc}>
               {step === 1 &&
-                'Supaya Mimo bisa menyapa dan menemanimu dengan lebih personal.'}
+                'Data fisik dasar untuk menghitung indeks metabolisme tubuhmu.'}
               {step === 2 &&
                 'Jawabanmu membantu kami menghitung batas gula harian yang lebih sesuai.'}
               {step === 3 &&
-                'Aktivitas fisik ikut memengaruhi kebutuhan energi harianmu.'}
+                'Aktivitas fisik ikut memengaruhi toleransi konsumsi gula harianmu.'}
               {step === 4 &&
-                'Kami akan menyesuaikan rekomendasi agar tujuanmu tetap nyaman.'}
+                'Kami akan menyesuaikan rekomendasi agar tujuan dietmu tetap aman.'}
+              {step === 5 &&
+                'Kuesioner kesehatan selesai! Tulis nama panggilanmu agar Mimo bisa menyapa dan mendampingimu lebih akrab.'}
             </Text>
           </View>
 
@@ -248,21 +257,10 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
                   <Text style={styles.fieldLabel}>Nama lengkap</Text>
                   <TextInput
                     style={styles.textInput}
-                    placeholder="Misalnya, Natasya Zahra"
+                    placeholder="Misalnya, Natasya Zahirah"
                     placeholderTextColor="#A0948E"
                     value={name}
                     onChangeText={setName}
-                  />
-                </View>
-
-                <View>
-                  <Text style={styles.fieldLabel}>Nama panggilan</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    placeholder="Misalnya, Natasya"
-                    placeholderTextColor="#A0948E"
-                    value={nickname}
-                    onChangeText={setNickname}
                   />
                 </View>
 
@@ -518,6 +516,25 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
                 </TouchableOpacity>
               </View>
             )}
+
+            {step === 5 && (
+              <View style={styles.fieldsGroup}>
+                <View>
+                  <Text style={styles.fieldLabel}>Nama panggilan</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    placeholder="Misalnya, Natasya"
+                    placeholderTextColor="#A0948E"
+                    value={nickname}
+                    onChangeText={setNickname}
+                    autoFocus
+                  />
+                  <Text style={styles.helperText}>
+                    Nama ini akan digunakan oleh Mimo saat menyapamu di halaman utama dan laporan kesehatan harian.
+                  </Text>
+                </View>
+              </View>
+            )}
           </View>
         </Animated.View>
 
@@ -534,10 +551,10 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
               onPress={handleNext}
             >
               <Text style={styles.nextBtnText}>
-                {step === 4 ? 'Hitung Batas Gulaku ✨' : 'Lanjut'}
+                {step === 5 ? 'Hitung Batas Gulaku ✨' : 'Lanjut'}
               </Text>
               <Ionicons
-                name={step === 4 ? 'sparkles' : 'arrow-forward'}
+                name={step === 5 ? 'sparkles' : 'arrow-forward'}
                 size={18}
                 color="#FFFFFF"
               />
@@ -694,6 +711,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 14,
     color: '#403936',
+  },
+  helperText: {
+    fontSize: 12,
+    lineHeight: 16,
+    color: '#8A7B74',
+    marginTop: 6,
   },
   suffixInputWrapper: {
     flexDirection: 'row',

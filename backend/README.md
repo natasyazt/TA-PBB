@@ -1,6 +1,6 @@
 # 🍬 GulaMate RESTful API Backend
 **Modul 1: Application Programming Interface (API) — Praktikum Pemrograman Bergerak**
-**Pengembang:** Natasya Zahra
+**Pengembang:** Natasya Zahirah
 
 Backend API ini dibangun sesuai dengan pedoman dan arsitektur **Modul 1 Praktikum Pemrograman Bergerak**, menggunakan **Node.js, Express.js, dan Supabase Database** dengan pola arsitektur **Model-Controller-Router (MVC)**.
 

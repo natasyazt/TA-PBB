@@ -24,7 +24,7 @@ app.get("/", (req, res) => {
     status: "online",
     message: "GulaMate RESTful API Server",
     course: "Praktikum Pemrograman Bergerak (Modul 1)",
-    author: "Natasya Zahra",
+    author: "Natasya Zahirah",
     endpoints: {
       categories: "/api/categories",
       foods: "/api/foods",

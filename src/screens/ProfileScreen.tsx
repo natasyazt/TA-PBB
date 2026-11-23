@@ -13,7 +13,6 @@ import { Colors, Shadows } from '../constants/colors';
 import { UserProfile } from '../types';
 import { ConfirmationModal } from '../components/ConfirmationModal';
 import { AvatarPickerModal } from '../components/AvatarPickerModal';
-import { Mascot } from '../components/Mascot';
 
 interface ProfileScreenProps {
   profile: UserProfile;
@@ -164,48 +163,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </View>
         </View>
 
-        {/* Syarat 5: Halaman Profile/About Aplikasi */}
-        <View style={[styles.aboutCard, Shadows.card]}>
-          <View style={styles.aboutHeader}>
-            <View style={styles.aboutMascotBox}>
-              <Mascot status="optimal" size={44} compact />
-            </View>
-            <View style={{ flex: 1 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Text style={styles.aboutAppName}>GulaMate</Text>
-                <View style={styles.aboutVersionBadge}>
-                  <Text style={styles.aboutVersionText}>v1.0.0</Text>
-                </View>
-              </View>
-              <Text style={styles.aboutSub}>Tugas Akhir Praktikum Pemrograman Bergerak</Text>
-            </View>
-          </View>
 
-          <View style={styles.aboutDivider} />
-
-          <Text style={styles.aboutDesc}>
-            GulaMate adalah aplikasi mobile pemantau asupan gula harian cerdas untuk pencegahan dini risiko diabetes melitus dengan perhitungan batas konsumsi aman personal berdasarkan standar Kemenkes RI dan WHO.
-          </Text>
-
-          <View style={styles.aboutInfoGrid}>
-            <View style={styles.aboutInfoItem}>
-              <Text style={styles.aboutInfoLabel}>Pengembang</Text>
-              <Text style={styles.aboutInfoValue}>Natasya Zahra</Text>
-            </View>
-            <View style={styles.aboutInfoItem}>
-              <Text style={styles.aboutInfoLabel}>Mata Kuliah</Text>
-              <Text style={styles.aboutInfoValue}>Praktikum PBB 2026</Text>
-            </View>
-            <View style={styles.aboutInfoItem}>
-              <Text style={styles.aboutInfoLabel}>Arsitektur API</Text>
-              <Text style={styles.aboutInfoValue}>Express.js (Modul 1)</Text>
-            </View>
-            <View style={styles.aboutInfoItem}>
-              <Text style={styles.aboutInfoLabel}>Database BaaS</Text>
-              <Text style={styles.aboutInfoValue}>Supabase PostgreSQL</Text>
-            </View>
-          </View>
-        </View>
 
         {/* Account Actions */}
         <View style={styles.actionsGroup}>
@@ -488,79 +446,5 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: 16,
   },
-  aboutCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    padding: 18,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#EFE7DE',
-  },
-  aboutHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  aboutMascotBox: {
-    width: 48,
-    height: 48,
-    borderRadius: 20,
-    backgroundColor: '#E6FAF6',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  aboutAppName: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#403936',
-  },
-  aboutVersionBadge: {
-    backgroundColor: '#E6FAF6',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
-  },
-  aboutVersionText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#188F7B',
-  },
-  aboutSub: {
-    fontSize: 11,
-    color: '#8D7E77',
-    marginTop: 2,
-  },
-  aboutDivider: {
-    height: 1,
-    backgroundColor: '#F3ECE7',
-    marginVertical: 12,
-  },
-  aboutDesc: {
-    fontSize: 12,
-    color: '#655A54',
-    lineHeight: 18,
-    marginBottom: 14,
-  },
-  aboutInfoGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  aboutInfoItem: {
-    width: '48%',
-    backgroundColor: '#FAF5EE',
-    borderRadius: 14,
-    padding: 10,
-  },
-  aboutInfoLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#8A7B74',
-    marginBottom: 2,
-  },
-  aboutInfoValue: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#403936',
-  },
+
 });
