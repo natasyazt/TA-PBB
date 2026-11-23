@@ -7,9 +7,10 @@ import { Colors, Shadows } from '../constants/colors';
 interface FoodItemCardProps {
   item: FoodLog;
   onDelete: (id: string) => void;
+  onPress?: (item: FoodLog) => void;
 }
 
-export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete }) => {
+export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onPress }) => {
   const getCategoryIcon = (category: string) => {
     switch (category) {
       case 'minuman':
@@ -29,7 +30,11 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete }) =>
   const totalSugar = (item.sugarGrams * item.portion).toFixed(1);
 
   return (
-    <View style={[styles.card, Shadows.soft]}>
+    <TouchableOpacity
+      style={[styles.card, Shadows.soft]}
+      activeOpacity={0.75}
+      onPress={() => onPress && onPress(item)}
+    >
       {/* Category Icon */}
       <View style={[styles.iconCircle, { backgroundColor: catStyle.bg }]}>
         <MaterialCommunityIcons name={catStyle.name as any} size={22} color={catStyle.color} />
@@ -64,11 +69,14 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete }) =>
       <TouchableOpacity
         style={styles.deleteBtn}
         activeOpacity={0.7}
-        onPress={() => onDelete(item.id)}
+        onPress={(e) => {
+          e.stopPropagation?.();
+          onDelete(item.id);
+        }}
       >
         <Ionicons name="trash-outline" size={16} color="#E53E3E" />
       </TouchableOpacity>
-    </View>
+    </TouchableOpacity>
   );
 };
 

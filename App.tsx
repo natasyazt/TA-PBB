@@ -355,6 +355,7 @@ export default function App() {
                 setActiveDate(date);
                 setCurrentTab('home');
               }}
+              onAddFood={handleAddFood}
             />
           )}
 

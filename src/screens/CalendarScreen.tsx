@@ -15,6 +15,7 @@ import { getSugarStatus, getStatusInfo } from '../utils/sugarCalculator';
 import { CalendarView } from '../components/CalendarView';
 import { FoodItemCard } from '../components/FoodItemCard';
 import { ConfirmationModal } from '../components/ConfirmationModal';
+import { FoodDetailModal } from '../components/FoodDetailModal';
 
 interface CalendarScreenProps {
   profile: UserProfile;
@@ -33,6 +34,7 @@ export const CalendarScreen: React.FC<CalendarScreenProps> = ({
 }) => {
   const [selectedDate, setSelectedDate] = useState<string>(activeDate);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [selectedDetailItem, setSelectedDetailItem] = useState<FoodLog | null>(null);
 
   const dayStatuses: Record<string, { totalSugar: number; status: SugarStatus }> = {};
   allLogs.forEach((log) => {
@@ -188,12 +190,25 @@ export const CalendarScreen: React.FC<CalendarScreenProps> = ({
                 <FoodItemCard
                   key={item.id}
                   item={item}
+                  onPress={(food) => setSelectedDetailItem(food)}
                   onDelete={(id) => setDeleteId(id)}
                 />
               ))
             )}
           </View>
         </ScrollView>
+
+        {/* Food Detail Modal (Syarat 4: Item List Dapat Diklik ke Halaman Detail) */}
+        <FoodDetailModal
+          visible={selectedDetailItem !== null}
+          item={selectedDetailItem}
+          dailySugarLimit={profile.dailySugarLimit || 50}
+          onClose={() => setSelectedDetailItem(null)}
+          onDelete={(id) => {
+            setSelectedDetailItem(null);
+            setDeleteId(id);
+          }}
+        />
 
         {/* Delete Confirmation Modal */}
         <ConfirmationModal

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -7,17 +7,21 @@ import {
   SafeAreaView,
   TouchableOpacity,
   Dimensions,
+  TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Shadows } from '../constants/colors';
-import { FoodLog, UserProfile } from '../types';
+import { FoodLog, UserProfile, CatalogFoodItem } from '../types';
 import { shiftDate, dateFromKey, getStatus } from '../utils/dateUtils';
+import { FOOD_CATALOG } from '../constants/foodCatalog';
+import { KatalogFoodDetailModal } from '../components/KatalogFoodDetailModal';
 
 interface StatsScreenProps {
   profile: UserProfile;
   allLogs: FoodLog[];
   activeDate: string;
   onSelectDay?: (date: string) => void;
+  onAddFood?: (item: Omit<FoodLog, 'id' | 'createdAt'>) => void;
 }
 
 export const StatsScreen: React.FC<StatsScreenProps> = ({
@@ -25,8 +29,11 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({
   allLogs,
   activeDate,
   onSelectDay,
+  onAddFood,
 }) => {
   const limit = profile.dailySugarLimit || 50;
+  const [selectedCatalogItem, setSelectedCatalogItem] = useState<CatalogFoodItem | null>(null);
+  const [catalogSearch, setCatalogSearch] = useState<string>('');
 
   // 7 days ending at activeDate
   const days = Array.from({ length: 7 }, (_, index) =>
@@ -199,7 +206,114 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({
             <Text style={[styles.summaryLabel, { color: '#579B8F' }]}>ruang rata-rata</Text>
           </View>
         </View>
+
+        {/* Syarat 4: Halaman Utama 2 dengan List Edukasi & Detail Gizi */}
+        <View style={styles.catalogSection}>
+          <View style={styles.catalogHeader}>
+            <Text style={styles.catalogTitle}>Katalog Gizi Pangan Populer</Text>
+            <Text style={styles.catalogSub}>
+              Ketuk makanan atau minuman untuk melihat rincian kandungan gula & tips edukasinya.
+            </Text>
+          </View>
+
+          {/* Search bar */}
+          <View style={styles.searchBar}>
+            <Ionicons name="search" size={16} color="#A39690" />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Cari makanan atau minuman..."
+              placeholderTextColor="#A39690"
+              value={catalogSearch}
+              onChangeText={setCatalogSearch}
+            />
+            {catalogSearch.length > 0 && (
+              <TouchableOpacity onPress={() => setCatalogSearch('')}>
+                <Ionicons name="close-circle" size={16} color="#A39690" />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Catalog List */}
+          <View style={styles.catalogList}>
+            {FOOD_CATALOG.filter((item) =>
+              item.name.toLowerCase().includes(catalogSearch.toLowerCase())
+            )
+              .slice(0, 12)
+              .map((item) => {
+                const isDrink = item.category === 'minuman';
+                const isFruit = item.category === 'buah';
+                const isSnack = item.category === 'camilan';
+
+                const badgeBg = isDrink
+                  ? '#E6FAF6'
+                  : isFruit
+                  ? '#FED7D7'
+                  : isSnack
+                  ? '#FEEBC8'
+                  : '#EDF2F7';
+                const badgeColor = isDrink
+                  ? '#188F7B'
+                  : isFruit
+                  ? '#E53E3E'
+                  : isSnack
+                  ? '#DD6B20'
+                  : '#4A5568';
+
+                return (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={[styles.catalogCard, Shadows.soft]}
+                    activeOpacity={0.75}
+                    onPress={() => setSelectedCatalogItem(item)}
+                  >
+                    <View style={[styles.catalogBadge, { backgroundColor: badgeBg }]}>
+                      <Text style={[styles.catalogBadgeText, { color: badgeColor }]}>
+                        {item.name.slice(0, 3).toUpperCase()}
+                      </Text>
+                    </View>
+
+                    <View style={styles.catalogDetails}>
+                      <Text style={styles.catalogName} numberOfLines={1}>
+                        {item.name}
+                      </Text>
+                      <Text style={styles.catalogSubtext}>
+                        {item.sugarGrams}g gula • {item.servingDesc || item.category}
+                      </Text>
+                    </View>
+
+                    <View style={styles.detailPill}>
+                      <Text style={styles.detailPillText}>Detail</Text>
+                      <Ionicons name="chevron-forward" size={13} color="#188F7B" />
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+          </View>
+        </View>
       </ScrollView>
+
+      {/* Katalog Food Detail Modal (Syarat 4: Item List Dapat Diklik ke Halaman Detail) */}
+      <KatalogFoodDetailModal
+        visible={selectedCatalogItem !== null}
+        item={selectedCatalogItem}
+        dailySugarLimit={limit}
+        onClose={() => setSelectedCatalogItem(null)}
+        onQuickLog={
+          onAddFood
+            ? (food) => {
+                onAddFood({
+                  date: activeDate,
+                  name: food.name,
+                  sugarGrams: food.sugarGrams,
+                  portion: 1,
+                  category: food.category,
+                  time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+                });
+                setSelectedCatalogItem(null);
+              }
+            : undefined
+        }
+      />
     </SafeAreaView>
   );
 };
@@ -404,5 +518,91 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     marginTop: 2,
+  },
+  catalogSection: {
+    marginTop: 24,
+  },
+  catalogHeader: {
+    marginBottom: 12,
+  },
+  catalogTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#403936',
+  },
+  catalogSub: {
+    fontSize: 12,
+    color: '#8A7B74',
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#EFE7DA',
+    marginBottom: 12,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 13,
+    color: '#403936',
+    padding: 0,
+  },
+  catalogList: {
+    gap: 8,
+  },
+  catalogCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#EFE7DA',
+  },
+  catalogBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  catalogBadgeText: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  catalogDetails: {
+    flex: 1,
+  },
+  catalogName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#403936',
+  },
+  catalogSubtext: {
+    fontSize: 12,
+    color: '#8A7B74',
+    marginTop: 2,
+  },
+  detailPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    backgroundColor: '#E6FAF6',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+  },
+  detailPillText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#188F7B',
   },
 });

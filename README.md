@@ -6,6 +6,20 @@ Aplikasi ini ditujukan sebagai solusi preventif dini diabetes melitus dengan men
 
 ---
 
+## 📋 Pemenuhan Ketentuan Tugas Akhir (TA PBB)
+
+| No | Ketentuan Praktikum | Status | Implementasi pada GulaMate |
+|:---:|---|:---:|---|
+| **1** | **Menggunakan API (Web Service) yang dibuat sendiri sesuai dengan Modul 1** | ✅ **TERPENUHI** | Terdapat backend RESTful API berbasis **Node.js, Express.js, dan Supabase** di folder `backend/` dengan arsitektur **Model-Controller-Router (MVC)** sesuai modul 1 (`/api/categories`, `/api/foods`, `/api/logs`). |
+| **2** | **Memiliki Bottom Navigation Bar** | ✅ **TERPENUHI** | Memiliki Bottom Navigation Bar custom 5 slot (Hari Ini, Riwayat, Tombol (+) Tambah Asupan, Kalender, Profil) dengan transisi animasi halus antar tab. |
+| **3** | **Memiliki minimal 5 halaman** | ✅ **TERPENUHI** | Memiliki **6 halaman utama**: <br>1. `AuthScreen` (Login & Registrasi)<br>2. `OnboardingScreen` (Kuesioner Profil Kesehatan 4-Step)<br>3. `HomeScreen` (Dashboard Utama & Ringkasan Harian)<br>4. `StatsScreen` (Riwayat & Bar Chart 7 Hari)<br>5. `CalendarScreen` (Kalender Asupan Interaktif)<br>6. `ProfileScreen` (Profil Pengguna & About Aplikasi) |
+| **4** | **Minimal terdapat 2 halaman utama yang memiliki list dan setiap item pada list dapat diklik untuk menampilkan halaman detail** | ✅ **TERPENUHI** | **Halaman 1 (HomeScreen / CalendarScreen):** Menampilkan list asupan hari ini, ketika diklik akan membuka **FoodDetailModal** (menampilkan gram gula, visualisasi sendok teh 🥄, persentase batas harian, kalori, dan tips olahraga pembakaran).<br>**Halaman 2 (StatsScreen):** Menampilkan list Katalog Gizi Pangan Populer, ketika diklik akan membuka **KatalogFoodDetailModal** (menampilkan takaran saji, gram gula, beban glikemik, kalori, dan tips konsumsi bijak). |
+| **5** | **Memiliki 1 halaman Profile/About aplikasi** | ✅ **TERPENUHI** | Halaman `ProfileScreen` memiliki kartu identitas **"Tentang Aplikasi / About GulaMate"** yang memuat versi (v1.0.0), nama pengembang (Natasya Zahra), info mata kuliah Praktikum PBB, arsitektur API Modul 1, dan database Supabase. |
+| **6** | **Praktikan wajib mengunggah source code Tugas Akhir ke platform GitHub** | ✅ **TERPENUHI** | Seluruh source code tersinkronisasi di GitHub: `https://github.com/natasyazt/TA-PBB` (branch `main`). |
+| **7** | **Judul Tugas Akhir tidak boleh sama dengan praktikan lain** | ✅ **TERPENUHI** | Judul unik: *"GulaMate: Monitoring Asupan Gula Harian untuk Mencegah Diabetes"*. |
+
+---
+
 ## 🎨 1. Tampilan & Desain Terinspirasi Aplikasi Flo
 - **Tipografi Halus & Membulat (*Rounded*):** Menggunakan keluarga font **Nunito** yang lembut, bersih, dan modern.
 - **Palet Warna Pastel:**

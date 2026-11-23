@@ -20,6 +20,7 @@ import { ConfirmationModal } from '../components/ConfirmationModal';
 import { MimoChatModal } from '../components/MimoChatModal';
 import { WaterTrackerCard } from '../components/WaterTrackerCard';
 import { MythFactChallengeCard } from '../components/MythFactChallengeCard';
+import { FoodDetailModal } from '../components/FoodDetailModal';
 
 interface HomeScreenProps {
   profile: UserProfile;
@@ -51,6 +52,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   isRefreshing = false,
 }) => {
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [selectedDetailItem, setSelectedDetailItem] = useState<FoodLog | null>(null);
   const [isChatOpen, setIsChatOpen] = useState<boolean>(false);
 
   const limit = profile.dailySugarLimit || 50;
@@ -264,7 +266,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             ) : (
               <View style={styles.entriesList}>
                 {todayLogs.map((entry, index) => (
-                  <View key={entry.id} style={[styles.entryCard, Shadows.soft]}>
+                  <TouchableOpacity
+                    key={entry.id}
+                    style={[styles.entryCard, Shadows.soft]}
+                    activeOpacity={0.75}
+                    onPress={() => setSelectedDetailItem(entry)}
+                  >
                     <View
                       style={[
                         styles.entryAvatarCircle,
@@ -307,11 +314,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     <TouchableOpacity
                       style={styles.trashBtn}
                       activeOpacity={0.7}
-                      onPress={() => setDeleteId(entry.id)}
+                      onPress={(e) => {
+                        e.stopPropagation?.();
+                        setDeleteId(entry.id);
+                      }}
                     >
                       <Ionicons name="trash-outline" size={17} color="#B4A7A0" />
                     </TouchableOpacity>
-                  </View>
+                  </TouchableOpacity>
                 ))}
               </View>
             )}
@@ -320,6 +330,18 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           {/* Interactive Feature 2: Tantangan Edukasi Mitos vs Fakta Harian */}
           <MythFactChallengeCard />
         </ScrollView>
+
+        {/* Food Detail Modal (Syarat 4: Klik Item List -> Halaman Detail) */}
+        <FoodDetailModal
+          visible={selectedDetailItem !== null}
+          item={selectedDetailItem}
+          dailySugarLimit={limit}
+          onClose={() => setSelectedDetailItem(null)}
+          onDelete={(id) => {
+            setSelectedDetailItem(null);
+            setDeleteId(id);
+          }}
+        />
 
         {/* Delete Confirmation Modal */}
         <ConfirmationModal
