@@ -4,6 +4,8 @@
  * menggunakan model pemrosesan bahasa alami (NLP) nutrisi lokal & data Kemenkes/USDA.
  */
 
+import { getGeminiApiKey, askGeminiSugarEstimate } from './geminiService';
+
 export interface SugarEstimateResult {
   sugarGrams: number;
   confidence: 'high' | 'medium' | 'estimated';
@@ -83,6 +85,17 @@ export async function estimateSugarFromAI(foodQuery: string): Promise<SugarEstim
       servingDesc: '',
     };
   }
+
+  // Coba gunakan Gemini AI jika API key terkonfigurasi
+  try {
+    const apiKey = await getGeminiApiKey();
+    if (apiKey) {
+      const geminiResult = await askGeminiSugarEstimate(foodQuery.trim(), apiKey);
+      if (geminiResult) {
+        return geminiResult;
+      }
+    }
+  } catch {}
 
   // Cek apakah ada pengubah gula spesifik
   const isNoSugar =

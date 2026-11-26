@@ -380,9 +380,9 @@ export const AddFoodModal: React.FC<AddFoodModalProps> = ({
                       <Ionicons name="sparkles" size={16} color="#FFFFFF" />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.aiBannerTitle}>Estimasi Gula Otomatis Cerdas</Text>
+                      <Text style={styles.aiBannerTitle}>Estimasi Gula Cerdas (Gemini AI)</Text>
                       <Text style={styles.aiBannerDesc}>
-                        Ketik nama menu apa saja (misal: "Kue klepon 3 butir" atau "Kopi susu gula aren less sugar"). AI akan menghitung takaran gulanya.
+                        Ketik nama menu apa saja (misal: "Kopi susu gula aren" atau "Kue klepon 3 butir"). AI akan menghitung estimasi takaran gulanya secara otomatis.
                       </Text>
                     </View>
                   </View>
