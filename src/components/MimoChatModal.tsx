@@ -34,11 +34,13 @@ interface MimoChatModalProps {
 
 const QUICK_PROMPTS = [
   '☕ Berapa gram pada kopi susu?',
-  '🧋 Boba vs Kopi Susu, mana gulanya lebih tinggi?',
+  '🧋 Berapa gram gula pada boba?',
+  '🍹 Berapa gram gula es teh manis?',
+  '🍩 Berapa gram pada donat?',
   '🏃‍♂️ Gimana cara bakar gula hari ini?',
   '😴 Kenapa ngantuk setelah makan manis?',
-  '🍓 Ide camilan manis yang sehat apa ya?',
-  '🩺 Apa bedanya gula alami dan gula tambahan?',
+  '🌿 Apakah pemanis stevia aman?',
+  '🍎 Berapa gram gula pada pisang?',
 ];
 
 export const MimoChatModal: React.FC<MimoChatModalProps> = ({
@@ -169,13 +171,13 @@ export const MimoChatModal: React.FC<MimoChatModalProps> = ({
                   <View>
                     <Text style={styles.title}>Ngobrol Bareng Mimo</Text>
                     <TouchableOpacity
-                      style={styles.geminiBadge}
+                      style={[styles.geminiBadge, isKeySaved ? styles.geminiBadgeCloud : styles.geminiBadgeLocal]}
                       activeOpacity={0.7}
                       onPress={() => setShowApiKeyModal(true)}
                     >
-                      <Ionicons name="sparkles" size={11} color="#188F7B" />
-                      <Text style={styles.geminiBadgeText}>
-                        {isKeySaved ? 'Gemini AI Aktif' : 'Gemini AI Terhubung'}
+                      <Ionicons name="sparkles" size={11} color={isKeySaved ? '#188F7B' : '#C25E40'} />
+                      <Text style={[styles.geminiBadgeText, { color: isKeySaved ? '#188F7B' : '#C25E40' }]}>
+                        {isKeySaved ? 'Gemini AI Aktif' : 'Mimo AI Aktif'}
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -326,7 +328,7 @@ export const MimoChatModal: React.FC<MimoChatModalProps> = ({
                     </View>
 
                     <Text style={styles.apiKeyDesc}>
-                      Mimo dapat menjawab pertanyaan gram gula makanan, tips diet, dan konsultasi kesehatan menggunakan model AI terkini. Kamu dapat memasukkan Google Gemini API Key sendiri:
+                      Mimo dilengkapi mesin AI Nutrisi Cerdas yang siap menjawab ratusan makanan, takaran gram gula, dan konsultasi pencegahan diabetes. Kamu juga dapat menambahkan Google Gemini API Key sendiri:
                     </Text>
 
                     <TextInput
@@ -592,6 +594,12 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '800',
     color: '#188F7B',
+  },
+  geminiBadgeCloud: {
+    backgroundColor: '#EAF8F4',
+  },
+  geminiBadgeLocal: {
+    backgroundColor: '#FFF0EB',
   },
   headerRightGroup: {
     flexDirection: 'row',
