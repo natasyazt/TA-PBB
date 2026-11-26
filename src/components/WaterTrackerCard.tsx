@@ -5,35 +5,44 @@ import { Shadows } from '../constants/colors';
 
 interface WaterTrackerCardProps {
   todaySugar: number;
+  currentGlasses?: number;
   onLogWater?: () => void;
+  onRemoveWater?: () => void;
 }
 
 export const WaterTrackerCard: React.FC<WaterTrackerCardProps> = ({
   todaySugar,
+  currentGlasses,
   onLogWater,
+  onRemoveWater,
 }) => {
-  const [glasses, setGlasses] = useState<number>(3); // default 3 glasses logged
+  const [fallbackGlasses, setFallbackGlasses] = useState<number>(0);
   const totalTarget = 8; // 8 gelas = 2000 ml
+  const glasses = currentGlasses !== undefined ? currentGlasses : fallbackGlasses;
 
   const handleAddGlass = () => {
     if (glasses < totalTarget) {
-      setGlasses((prev) => prev + 1);
-      if (onLogWater) onLogWater();
+      if (currentGlasses === undefined) {
+        setFallbackGlasses((prev) => prev + 1);
+      }
+      onLogWater?.();
     }
   };
 
   const handleRemoveGlass = () => {
     if (glasses > 0) {
-      setGlasses((prev) => prev - 1);
+      if (currentGlasses === undefined) {
+        setFallbackGlasses((prev) => Math.max(0, prev - 1));
+      }
+      onRemoveWater?.();
     }
   };
 
   const handleToggleGlass = (index: number) => {
     if (index < glasses) {
-      setGlasses(index);
+      handleRemoveGlass();
     } else {
-      setGlasses(index + 1);
-      if (onLogWater) onLogWater();
+      handleAddGlass();
     }
   };
 

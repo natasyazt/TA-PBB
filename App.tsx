@@ -255,6 +255,18 @@ export default function App() {
     });
   };
 
+  const handleQuickRemoveWater = async () => {
+    const waterLogs = allLogs.filter(
+      (log) =>
+        log.date === activeDate &&
+        log.sugarGrams === 0 &&
+        (log.name.toLowerCase().includes('air') || log.notes?.toLowerCase().includes('hidrasi'))
+    );
+    if (waterLogs.length > 0) {
+      await handleDeleteFood(waterLogs[0].id);
+    }
+  };
+
   // Loading Screen
   if (isLoading || !profile) {
     return (
@@ -354,6 +366,7 @@ export default function App() {
               onGoToSettings={() => setCurrentTab('profile')}
               onOpenCalendar={() => setCurrentTab('calendar')}
               onQuickLogWater={handleQuickLogWater}
+              onQuickRemoveWater={handleQuickRemoveWater}
             />
           )}
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,8 @@ import {
   SafeAreaView,
   RefreshControl,
   Image,
+  TextInput,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Shadows } from '../constants/colors';
@@ -34,6 +36,7 @@ interface HomeScreenProps {
   onGoToSettings: () => void;
   onOpenCalendar: () => void;
   onQuickLogWater?: () => void;
+  onQuickRemoveWater?: () => void;
   isRefreshing?: boolean;
 }
 
@@ -49,11 +52,40 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onGoToSettings,
   onOpenCalendar,
   onQuickLogWater,
+  onQuickRemoveWater,
   isRefreshing = false,
 }) => {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [selectedDetailItem, setSelectedDetailItem] = useState<FoodLog | null>(null);
   const [isChatOpen, setIsChatOpen] = useState<boolean>(false);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [visibleCount, setVisibleCount] = useState<number>(5);
+
+  useEffect(() => {
+    setVisibleCount(5);
+    setSearchQuery('');
+  }, [activeDate]);
+
+  const waterLogs = todayLogs.filter(
+    (log) =>
+      log.sugarGrams === 0 &&
+      (log.name.toLowerCase().includes('air') || log.notes?.toLowerCase().includes('hidrasi'))
+  );
+  const waterCount = waterLogs.length;
+
+  const filteredTodayLogs = todayLogs.filter((entry) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase().trim();
+    return (
+      entry.name.toLowerCase().includes(q) ||
+      (entry.category && entry.category.toLowerCase().includes(q)) ||
+      (entry.notes && entry.notes.toLowerCase().includes(q))
+    );
+  });
+
+  const displayedLogs = filteredTodayLogs.slice(0, visibleCount);
+  const hasMore = visibleCount < filteredTodayLogs.length;
+  const remainingCount = filteredTodayLogs.length - visibleCount;
 
   const limit = profile.dailySugarLimit || 50;
   const totalSugar = todayLogs.reduce((acc, curr) => acc + curr.sugarGrams * curr.portion, 0);
@@ -227,7 +259,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </View>
 
           {/* Interactive Feature 1: Target Hidrasi Air Putih */}
-          <WaterTrackerCard todaySugar={totalSugar} onLogWater={onQuickLogWater} />
+          <WaterTrackerCard
+            todaySugar={totalSugar}
+            currentGlasses={waterCount}
+            onLogWater={onQuickLogWater}
+            onRemoveWater={onQuickRemoveWater}
+          />
 
           {/* Asupan Hari Ini Section */}
           <View style={styles.entriesSection}>
@@ -235,7 +272,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               <View>
                 <Text style={styles.entriesTitle}>Asupan hari ini</Text>
                 <Text style={styles.entriesSubtitle}>
-                  {todayLogs.length} makanan dan minuman tercatat
+                  {searchQuery.trim()
+                    ? `Ditemukan ${filteredTodayLogs.length} dari ${todayLogs.length} catatan`
+                    : `${todayLogs.length} makanan dan minuman tercatat`}
                 </Text>
               </View>
               <TouchableOpacity
@@ -246,6 +285,36 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 <Text style={styles.addMiniBtnText}>+ Tambah</Text>
               </TouchableOpacity>
             </View>
+
+            {/* Search Bar on Asupan Hari Ini */}
+            {todayLogs.length > 0 && (
+              <View style={styles.searchBarContainer}>
+                <Ionicons name="search-outline" size={17} color="#8D7E77" style={styles.searchIcon} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Cari di asupan hari ini..."
+                  placeholderTextColor="#A2958E"
+                  value={searchQuery}
+                  onChangeText={(text) => {
+                    setSearchQuery(text);
+                    setVisibleCount(5);
+                  }}
+                  returnKeyType="search"
+                />
+                {searchQuery.length > 0 && (
+                  <TouchableOpacity
+                    style={styles.searchClearBtn}
+                    onPress={() => {
+                      setSearchQuery('');
+                      setVisibleCount(5);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="close-circle" size={18} color="#B4A7A0" />
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
 
             {todayLogs.length === 0 ? (
               <TouchableOpacity
@@ -263,67 +332,116 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   </Text>
                 </View>
               </TouchableOpacity>
-            ) : (
-              <View style={styles.entriesList}>
-                {todayLogs.map((entry, index) => (
-                  <TouchableOpacity
-                    key={entry.id}
-                    style={[styles.entryCard, Shadows.soft]}
-                    activeOpacity={0.75}
-                    onPress={() => setSelectedDetailItem(entry)}
-                  >
-                    <View
-                      style={[
-                        styles.entryAvatarCircle,
-                        {
-                          backgroundColor:
-                            entry.sugarGrams === 0
-                              ? '#E9FAF4'
-                              : index % 2 === 0
-                              ? '#FFF0E5'
-                              : '#E8F8F2',
-                        },
-                      ]}
-                    >
-                      {entry.sugarGrams === 0 ? (
-                        <Ionicons name="water-outline" size={20} color="#187764" />
-                      ) : (
-                        <Text
-                          style={[
-                            styles.entryInitialsText,
-                            {
-                              color: index % 2 === 0 ? '#A65C42' : '#187764',
-                            },
-                          ]}
-                        >
-                          {entry.name.slice(0, 2).toUpperCase()}
-                        </Text>
-                      )}
-                    </View>
-
-                    <View style={styles.entryDetails}>
-                      <Text style={styles.entryName} numberOfLines={1}>
-                        {entry.name}
-                      </Text>
-                      <Text style={styles.entrySugarSub}>
-                        {(entry.sugarGrams * entry.portion).toFixed(1)} gram gula
-                        {entry.portion !== 1 ? ` • ${entry.portion}x porsi` : ''}
-                      </Text>
-                    </View>
-
-                    <TouchableOpacity
-                      style={styles.trashBtn}
-                      activeOpacity={0.7}
-                      onPress={(e) => {
-                        e.stopPropagation?.();
-                        setDeleteId(entry.id);
-                      }}
-                    >
-                      <Ionicons name="trash-outline" size={17} color="#B4A7A0" />
-                    </TouchableOpacity>
-                  </TouchableOpacity>
-                ))}
+            ) : filteredTodayLogs.length === 0 ? (
+              <View style={styles.noSearchResultCard}>
+                <Ionicons name="search-outline" size={30} color="#C4B7AF" />
+                <Text style={styles.noSearchResultTitle}>Tidak ditemukan</Text>
+                <Text style={styles.noSearchResultSub}>
+                  Tidak ada catatan asupan yang cocok dengan "{searchQuery}"
+                </Text>
+                <TouchableOpacity
+                  style={styles.resetSearchBtn}
+                  onPress={() => setSearchQuery('')}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.resetSearchBtnText}>Reset Pencarian</Text>
+                </TouchableOpacity>
               </View>
+            ) : (
+              <>
+                <View style={styles.entriesList}>
+                  {displayedLogs.map((entry, index) => (
+                    <TouchableOpacity
+                      key={entry.id}
+                      style={[styles.entryCard, Shadows.soft]}
+                      activeOpacity={0.75}
+                      onPress={() => setSelectedDetailItem(entry)}
+                    >
+                      <View
+                        style={[
+                          styles.entryAvatarCircle,
+                          {
+                            backgroundColor:
+                              entry.sugarGrams === 0
+                                ? '#E9FAF4'
+                                : index % 2 === 0
+                                ? '#FFF0E5'
+                                : '#E8F8F2',
+                          },
+                        ]}
+                      >
+                        {entry.sugarGrams === 0 ? (
+                          <Ionicons name="water-outline" size={20} color="#187764" />
+                        ) : (
+                          <Text
+                            style={[
+                              styles.entryInitialsText,
+                              {
+                                color: index % 2 === 0 ? '#A65C42' : '#187764',
+                              },
+                            ]}
+                          >
+                            {entry.name.slice(0, 2).toUpperCase()}
+                          </Text>
+                        )}
+                      </View>
+
+                      <View style={styles.entryDetails}>
+                        <Text style={styles.entryName} numberOfLines={1}>
+                          {entry.name}
+                        </Text>
+                        <Text style={styles.entrySugarSub}>
+                          {(entry.sugarGrams * entry.portion).toFixed(1)} gram gula
+                          {entry.portion !== 1 ? ` • ${entry.portion}x porsi` : ''}
+                        </Text>
+                      </View>
+
+                      <TouchableOpacity
+                        style={styles.trashBtn}
+                        activeOpacity={0.7}
+                        onPress={(e) => {
+                          e.stopPropagation?.();
+                          setDeleteId(entry.id);
+                        }}
+                      >
+                        <Ionicons name="trash-outline" size={17} color="#B4A7A0" />
+                      </TouchableOpacity>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* Pagination Controls / Load More */}
+                <View style={styles.paginationContainer}>
+                  {hasMore && (
+                    <TouchableOpacity
+                      style={[styles.loadMoreBtn, Shadows.soft]}
+                      activeOpacity={0.8}
+                      onPress={() => setVisibleCount((prev) => prev + 5)}
+                    >
+                      <Text style={styles.loadMoreBtnText}>
+                        Muat Lebih Banyak ({remainingCount} lagi)
+                      </Text>
+                      <Ionicons name="chevron-down" size={16} color="#188F7B" />
+                    </TouchableOpacity>
+                  )}
+
+                  {!hasMore && filteredTodayLogs.length > 5 && (
+                    <View style={styles.paginationEndInfo}>
+                      <Text style={styles.paginationEndText}>
+                        Menampilkan semua {filteredTodayLogs.length} asupan hari ini
+                      </Text>
+                      <TouchableOpacity
+                        style={styles.collapseMiniBtn}
+                        onPress={() => setVisibleCount(5)}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="chevron-up" size={14} color="#8D7E77" />
+                        <Text style={styles.collapseMiniText}>Ciutkan</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+              </>
             )}
           </View>
 
@@ -680,5 +798,108 @@ const styles = StyleSheet.create({
     height: 32,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  searchBarContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: '#EFE7DF',
+    paddingHorizontal: 12,
+    paddingVertical: Platform.OS === 'ios' ? 10 : 7,
+    marginBottom: 12,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 13,
+    color: '#403936',
+    paddingVertical: 0,
+  },
+  searchClearBtn: {
+    padding: 2,
+    marginLeft: 6,
+  },
+  noSearchResultCard: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 22,
+    padding: 22,
+    borderWidth: 1,
+    borderColor: '#EFE7DF',
+  },
+  noSearchResultTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#403936',
+    marginTop: 8,
+  },
+  noSearchResultSub: {
+    fontSize: 12,
+    color: '#8D7E77',
+    textAlign: 'center',
+    marginTop: 4,
+    marginBottom: 12,
+  },
+  resetSearchBtn: {
+    backgroundColor: '#F3ECE7',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 14,
+  },
+  resetSearchBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#534741',
+  },
+  paginationContainer: {
+    marginTop: 12,
+    width: '100%',
+  },
+  loadMoreBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#EAF8F4',
+    borderWidth: 1.5,
+    borderColor: '#B8EDDF',
+    borderRadius: 18,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    width: '100%',
+  },
+  loadMoreBtnText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#188F7B',
+  },
+  paginationEndInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
+    paddingVertical: 4,
+  },
+  paginationEndText: {
+    fontSize: 12,
+    color: '#9C8F89',
+    fontWeight: '600',
+  },
+  collapseMiniBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  collapseMiniText: {
+    fontSize: 12,
+    color: '#8D7E77',
+    fontWeight: '700',
   },
 });
