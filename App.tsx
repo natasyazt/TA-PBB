@@ -47,6 +47,7 @@ export default function App() {
     id: string;
     name?: string;
     nickname?: string;
+    phone?: string;
   } | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [allLogs, setAllLogs] = useState<FoodLog[]>([]);
@@ -134,7 +135,7 @@ export default function App() {
             switchTabWithSlide(tabs[currIdx + 1], 'left');
           }
         }
-        // Swiped Right -> go to previous screen (Profile -> Calendar -> Stats -> Home)
+
         else if (gestureState.dx > 45 || gestureState.vx > 0.3) {
           if (currIdx > 0) {
             switchTabWithSlide(tabs[currIdx - 1], 'right');
@@ -237,6 +238,9 @@ export default function App() {
       newProfile.email = authUser.email;
       if (authUser.nickname) {
         newProfile.nickname = authUser.nickname;
+      }
+      if (authUser.phone) {
+        newProfile.phone = authUser.phone;
       }
     }
     newProfile.isOnboarded = true;

@@ -29,8 +29,8 @@ import {
 } from '../services/storage';
 
 interface AuthScreenProps {
-  onSuccessLogin: (user: { email: string; id: string; name?: string; nickname?: string }) => void;
-  onStartSignUp: (user: { email: string; id: string; name: string; nickname?: string }) => void;
+  onSuccessLogin: (user: { email: string; id: string; name?: string; nickname?: string; phone?: string }) => void;
+  onStartSignUp: (user: { email: string; id: string; name: string; nickname?: string; phone?: string }) => void;
 }
 
 export const AuthScreen: React.FC<AuthScreenProps> = ({
@@ -41,6 +41,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -77,16 +78,12 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   const hasSymbol = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(password);
   const isPasswordSecure = hasMinLength && hasNumber && hasSymbol;
 
-  // Multi-Step Identity Verification Forgot Password State
+  // Phone Number Verification Forgot Password State
   const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
-  const [resetStep, setResetStep] = useState<'identify' | 'otp_password'>('identify');
+  const [resetStep, setResetStep] = useState<'verify_phone' | 'new_password'>('verify_phone');
   const [resetEmail, setResetEmail] = useState('');
-  const [resetName, setResetName] = useState('');
+  const [resetPhone, setResetPhone] = useState('');
   const [matchedAccountName, setMatchedAccountName] = useState('');
-  const [generatedOtp, setGeneratedOtp] = useState('');
-  const [inputOtp, setInputOtp] = useState('');
-  const [otpTimer, setOtpTimer] = useState(60);
-  const [otpBannerVisible, setOtpBannerVisible] = useState(false);
   const [resetNewPassword, setResetNewPassword] = useState('');
   const [resetConfirmPassword, setResetConfirmPassword] = useState('');
   const [showResetPassword, setShowResetPassword] = useState(false);
@@ -99,46 +96,34 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   const resetHasNumber = /\d/.test(resetNewPassword);
   const resetHasSymbol = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(resetNewPassword);
 
-  // Countdown timer for OTP
-  useEffect(() => {
-    let interval: any = null;
-    if (showForgotPasswordModal && resetStep === 'otp_password' && otpTimer > 0) {
-      interval = setInterval(() => {
-        setOtpTimer((prev) => (prev > 0 ? prev - 1 : 0));
-      }, 1000);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [showForgotPasswordModal, resetStep, otpTimer]);
-
   const handleOpenForgotPassword = () => {
     setResetEmail(email.trim());
-    setResetName('');
-    setResetStep('identify');
+    setResetPhone('');
+    setResetStep('verify_phone');
     setResetNewPassword('');
     setResetConfirmPassword('');
-    setGeneratedOtp('');
-    setInputOtp('');
-    setOtpBannerVisible(false);
     setResetErrorMsg('');
     setResetSuccessMsg('');
     setShowForgotPasswordModal(true);
   };
 
-  const handleVerifyIdentityAndSendOtp = async () => {
+  const handleVerifyPhone = async () => {
     setResetErrorMsg('');
     setResetSuccessMsg('');
 
     const normalized = resetEmail.trim().toLowerCase();
-    const enteredName = resetName.trim();
+    const cleanEnteredPhone = resetPhone.replace(/[^0-9]/g, '');
 
     if (!normalized) {
       setResetErrorMsg('Mohon masukkan alamat email akunmu.');
       return;
     }
-    if (!enteredName) {
-      setResetErrorMsg('Mohon masukkan nama lengkap yang kamu daftarkan.');
+    if (!cleanEnteredPhone) {
+      setResetErrorMsg('Mohon masukkan nomor handphone yang kamu daftarkan.');
+      return;
+    }
+    if (cleanEnteredPhone.length < 9) {
+      setResetErrorMsg('Nomor handphone minimal 9 digit angka.');
       return;
     }
 
@@ -155,6 +140,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
           foundAccount = {
             id: prevProfile.id || ('user_' + Date.now()),
             email: normalized,
+            phone: prevProfile.phone,
             password: '',
             name: prevProfile.name || 'Teman Manis',
             nickname: prevProfile.nickname || 'Manis',
@@ -170,65 +156,41 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
         return;
       }
 
-      // 2. Verify identity: Compare full name
-      const accountFullName = (foundAccount.name || '').trim().toLowerCase();
-      const enteredFullName = enteredName.toLowerCase();
+      // 2. Verify phone number
+      const cleanSavedPhone = (foundAccount.phone || foundAccount.profile?.phone || '').replace(/[^0-9]/g, '');
 
-      // Check for match (exact or name contains)
-      const isNameMatched =
-        accountFullName === enteredFullName ||
-        accountFullName.includes(enteredFullName) ||
-        enteredFullName.includes(accountFullName);
+      // Check match: handle prefix variations (e.g., 0812... vs 62812...)
+      const isPhoneMatch =
+        cleanSavedPhone.length >= 8 && cleanEnteredPhone.length >= 8
+          ? cleanSavedPhone === cleanEnteredPhone ||
+          cleanSavedPhone.endsWith(cleanEnteredPhone.slice(-8)) ||
+          cleanEnteredPhone.endsWith(cleanSavedPhone.slice(-8))
+          : cleanEnteredPhone.length >= 9; // Fallback for legacy demo accounts
 
-      if (!isNameMatched) {
+      if (!isPhoneMatch) {
         setResetIsLoading(false);
         setResetErrorMsg(
-          'Konfirmasi identitas gagal: Nama lengkap tidak cocok dengan data pendaftaran akun ini. Demi keamanan, kamu harus memasukkan nama yang sama.'
+          'Nomor handphone tidak cocok dengan data terdaftar pada akun ini. Demi keamanan akun, kamu harus memasukkan nomor HP yang sama.'
         );
         return;
       }
 
-      // 3. Identity confirmed -> generate 4-digit OTP code
-      const otpCode = Math.floor(1000 + Math.random() * 9000).toString();
-      setGeneratedOtp(otpCode);
+      // 3. Phone verified -> proceed to new password form
       setMatchedAccountName(foundAccount.name || 'Teman Manis');
-      setInputOtp('');
-      setOtpTimer(60);
-      setOtpBannerVisible(true);
       setResetIsLoading(false);
-      setResetStep('otp_password');
+      setResetStep('new_password');
     } catch {
       setResetIsLoading(false);
-      setResetErrorMsg('Terjadi kendala saat verifikasi identitas. Silakan coba lagi.');
+      setResetErrorMsg('Terjadi kendala saat verifikasi nomor HP. Silakan coba lagi.');
     }
   };
 
-  const handleResendOtp = () => {
-    const newOtp = Math.floor(1000 + Math.random() * 9000).toString();
-    setGeneratedOtp(newOtp);
-    setInputOtp('');
-    setOtpTimer(60);
-    setOtpBannerVisible(true);
-    setResetErrorMsg('');
-  };
-
-  const handleFinalResetPassword = async () => {
+  const handleSaveNewPassword = async () => {
     setResetErrorMsg('');
     setResetSuccessMsg('');
 
     const normalized = resetEmail.trim().toLowerCase();
 
-    // 1. Verify OTP
-    if (!inputOtp.trim()) {
-      setResetErrorMsg('Mohon masukkan kode OTP 4-digit yang dikirimkan.');
-      return;
-    }
-    if (inputOtp.trim() !== generatedOtp) {
-      setResetErrorMsg('Kode OTP salah atau tidak valid. Silakan periksa notifikasi keamanan di atas.');
-      return;
-    }
-
-    // 2. Validate new password
     if (!resetNewPassword || !resetConfirmPassword) {
       setResetErrorMsg('Mohon lengkapi kata sandi baru dan konfirmasinya.');
       return;
@@ -255,12 +217,17 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     try {
       const existingAccount = await findRegisteredAccount(normalized);
       if (existingAccount) {
-        await updateAccountPassword(normalized, resetNewPassword);
+        existingAccount.password = resetNewPassword;
+        if (!existingAccount.phone && resetPhone.trim()) {
+          existingAccount.phone = resetPhone.trim();
+        }
+        await saveRegisteredAccount(existingAccount);
       } else {
         const prevProfile = await getExistingProfileByEmail(normalized);
         const newAcc: RegisteredAccount = {
           id: prevProfile?.id || ('user_' + Date.now()),
           email: normalized,
+          phone: resetPhone.trim(),
           password: resetNewPassword,
           name: matchedAccountName || prevProfile?.name || 'Teman Manis',
           nickname: prevProfile?.nickname || 'Manis',
@@ -273,10 +240,10 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
       // Sync Supabase if online
       const supabase = getClient();
       if (supabase) {
-        supabase.auth.resetPasswordForEmail(normalized).catch(() => {});
+        supabase.auth.resetPasswordForEmail(normalized).catch(() => { });
       }
 
-      setResetSuccessMsg('Identitas terverifikasi & Kata sandi berhasil diperbarui! Mengalihkan ke login...');
+      setResetSuccessMsg('Nomor HP terverifikasi & Kata sandi berhasil diperbarui! Mengalihkan ke login...');
       setEmail(normalized);
       setPassword(resetNewPassword);
       setResetIsLoading(false);
@@ -300,6 +267,15 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     if (mode === 'signup') {
       if (!fullName.trim()) {
         setErrorMsg('Mohon masukkan nama lengkapmu.');
+        return;
+      }
+      if (!phone.trim()) {
+        setErrorMsg('Mohon masukkan nomor HP / WhatsApp.');
+        return;
+      }
+      const cleanDigits = phone.replace(/[^0-9]/g, '');
+      if (cleanDigits.length < 9 || cleanDigits.length > 15) {
+        setErrorMsg('Nomor HP tidak valid (harus 9–15 digit angka).');
         return;
       }
     }
@@ -356,6 +332,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
         const newAccount: RegisteredAccount = {
           id: userId,
           email: normalizedEmail,
+          phone: phone.trim(),
           password: password,
           name: fullName.trim(),
           createdAt: new Date().toISOString(),
@@ -367,6 +344,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
           id: userId,
           name: fullName.trim(),
           nickname: '',
+          phone: phone.trim(),
         };
         await setAuthUser(authData);
         setIsLoading(false);
@@ -387,7 +365,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
             supabase.auth.signInWithPassword({
               email: normalizedEmail,
               password: password,
-            }).catch(() => {});
+            }).catch(() => { });
           }
 
           const authData = {
@@ -395,6 +373,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
             id: localAccount.id,
             name: localAccount.name,
             nickname: localAccount.nickname || (localAccount.name ? localAccount.name.split(' ')[0] : 'Manis'),
+            phone: localAccount.phone,
           };
           await setAuthUser(authData);
           setIsLoading(false);
@@ -408,6 +387,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
           const migratedAccount: RegisteredAccount = {
             id: previousProfile.id || ('user_' + Date.now()),
             email: normalizedEmail,
+            phone: previousProfile.phone || phone.trim() || undefined,
             password: password,
             name: previousProfile.name || 'Teman Manis',
             nickname: previousProfile.nickname || 'Manis',
@@ -421,6 +401,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
             id: migratedAccount.id,
             name: migratedAccount.name,
             nickname: migratedAccount.nickname,
+            phone: migratedAccount.phone,
           };
           await setAuthUser(authData);
           setIsLoading(false);
@@ -594,19 +575,38 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
             )}
 
             {mode === 'signup' && (
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Nama Lengkap</Text>
-                <View style={styles.inputWrapper}>
-                  <Ionicons name="person-outline" size={18} color={Colors.textMuted} />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Misal: Natasya Zahirah"
-                    placeholderTextColor={Colors.textMuted}
-                    value={fullName}
-                    onChangeText={setFullName}
-                  />
+              <>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Nama Lengkap</Text>
+                  <View style={styles.inputWrapper}>
+                    <Ionicons name="person-outline" size={18} color={Colors.textMuted} />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Misal: Natasya Zahirah"
+                      placeholderTextColor={Colors.textMuted}
+                      value={fullName}
+                      onChangeText={setFullName}
+                    />
+                  </View>
                 </View>
-              </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Nomor Handphone / WhatsApp</Text>
+                  <View style={styles.inputWrapper}>
+                    <Ionicons name="call-outline" size={18} color={Colors.textMuted} />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Misal: 081234567890"
+                      placeholderTextColor={Colors.textMuted}
+                      keyboardType="phone-pad"
+                      value={phone}
+                      onChangeText={setPhone}
+                    />
+                  </View>
+                  <Text style={styles.inputHint}>
+                  </Text>
+                </View>
+              </>
             )}
 
             <View style={styles.inputGroup}>
@@ -731,27 +731,27 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               <View style={styles.modalCard}>
                 {/* 2-Step Progress Indicator */}
                 <View style={styles.stepIndicatorRow}>
-                  <View style={[styles.stepChip, resetStep === 'identify' ? styles.stepChipActive : styles.stepChipDone]}>
+                  <View style={[styles.stepChip, resetStep === 'verify_phone' ? styles.stepChipActive : styles.stepChipDone]}>
                     <Ionicons
-                      name={resetStep === 'otp_password' ? 'checkmark-circle' : 'shield-outline'}
+                      name={resetStep === 'new_password' ? 'checkmark-circle' : 'call-outline'}
                       size={13}
-                      color={resetStep === 'identify' ? '#FFFFFF' : '#188F7B'}
+                      color={resetStep === 'verify_phone' ? '#FFFFFF' : '#188F7B'}
                     />
-                    <Text style={[styles.stepChipText, resetStep === 'identify' && styles.stepChipTextActive]}>
-                      1. Identitas
+                    <Text style={[styles.stepChipText, resetStep === 'verify_phone' && styles.stepChipTextActive]}>
+                      1. Nomor HP
                     </Text>
                   </View>
 
                   <View style={styles.stepDivider} />
 
-                  <View style={[styles.stepChip, resetStep === 'otp_password' && styles.stepChipActive]}>
+                  <View style={[styles.stepChip, resetStep === 'new_password' && styles.stepChipActive]}>
                     <Ionicons
-                      name="key-outline"
+                      name="lock-closed-outline"
                       size={13}
-                      color={resetStep === 'otp_password' ? '#FFFFFF' : '#8D7E77'}
+                      color={resetStep === 'new_password' ? '#FFFFFF' : '#8D7E77'}
                     />
-                    <Text style={[styles.stepChipText, resetStep === 'otp_password' && styles.stepChipTextActive]}>
-                      2. OTP & Sandi
+                    <Text style={[styles.stepChipText, resetStep === 'new_password' && styles.stepChipTextActive]}>
+                      2. Sandi Baru
                     </Text>
                   </View>
                 </View>
@@ -760,42 +760,27 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                 <View style={styles.modalHeader}>
                   <View style={styles.modalIconBox}>
                     <Ionicons
-                      name={resetStep === 'identify' ? 'shield-checkmark' : 'lock-open'}
+                      name={resetStep === 'verify_phone' ? 'call' : 'key'}
                       size={24}
                       color="#188F7B"
                     />
                   </View>
                   <Text style={styles.modalTitle}>
-                    {resetStep === 'identify' ? 'Verifikasi Pemilik Akun' : 'Kode OTP & Sandi Baru'}
+                    {resetStep === 'verify_phone' ? 'Verifikasi Nomor Handphone' : 'Atur Kata Sandi Baru'}
                   </Text>
                   <Text style={styles.modalSubtitle}>
-                    {resetStep === 'identify'
-                      ? 'Demi keamanan akunmu, mohon konfirmasi email dan nama lengkap yang kamu daftarkan saat pendaftaran.'
-                      : 'Masukkan kode verifikasi OTP 4-digit yang dikirimkan dan tentukan kata sandi barumu.'}
+                    {resetStep === 'verify_phone'
+                      ? 'Untuk melindungi akunmu dari pembajakan, masukkan email dan nomor HP/WhatsApp yang kamu daftarkan saat buat akun.'
+                      : 'Nomor HP kamu terverifikasi sebagai pemilik sah! Silakan tentukan kata sandi baru untuk akunmu.'}
                   </Text>
                 </View>
 
-                {/* Simulated Security OTP Push Notification Banner */}
-                {resetStep === 'otp_password' && otpBannerVisible && (
-                  <View style={styles.otpBanner}>
-                    <View style={styles.otpBannerIcon}>
-                      <Ionicons name="notifications" size={16} color="#FFFFFF" />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.otpBannerTitle}>Simulasi Notifikasi Keamanan GulaMate</Text>
-                      <Text style={styles.otpBannerText}>
-                        Kode OTP Anda: <Text style={styles.otpCodeHighlight}>{generatedOtp}</Text> (berlaku {otpTimer} detik)
-                      </Text>
-                    </View>
-                  </View>
-                )}
-
                 {/* Verified Account Identity Pill */}
-                {resetStep === 'otp_password' && (
+                {resetStep === 'new_password' && (
                   <View style={styles.verifiedAccountBadge}>
-                    <Ionicons name="person-circle" size={16} color="#188F7B" />
+                    <Ionicons name="checkmark-circle" size={16} color="#188F7B" />
                     <Text style={styles.verifiedAccountText} numberOfLines={1}>
-                      Pemilik: <Text style={{ fontWeight: '800' }}>{matchedAccountName}</Text> ({resetEmail})
+                      Pemilik Sah: <Text style={{ fontWeight: '800' }}>{matchedAccountName}</Text> ({resetEmail})
                     </Text>
                   </View>
                 )}
@@ -814,8 +799,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                   </View>
                 )}
 
-                {/* STEP 1: IDENTIFICATION FORM */}
-                {resetStep === 'identify' ? (
+                {/* STEP 1: PHONE VERIFICATION FORM */}
+                {resetStep === 'verify_phone' ? (
                   <>
                     <View style={styles.inputGroup}>
                       <Text style={styles.label}>Alamat Email Akun</Text>
@@ -834,19 +819,20 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                     </View>
 
                     <View style={styles.inputGroup}>
-                      <Text style={styles.label}>Nama Lengkap Pemilik Akun</Text>
+                      <Text style={styles.label}>Nomor Handphone Terdaftar</Text>
                       <View style={styles.inputWrapper}>
-                        <Ionicons name="person-outline" size={18} color={Colors.textMuted} />
+                        <Ionicons name="call-outline" size={18} color={Colors.textMuted} />
                         <TextInput
                           style={styles.input}
-                          placeholder="Nama lengkap yang kamu daftarkan"
+                          placeholder="081234567890"
                           placeholderTextColor={Colors.textMuted}
-                          value={resetName}
-                          onChangeText={setResetName}
+                          keyboardType="phone-pad"
+                          value={resetPhone}
+                          onChangeText={setResetPhone}
                         />
                       </View>
                       <Text style={styles.inputHint}>
-                        🛡️ Verifikasi keamanan: Hanya pemilik sah yang mengetahui kombinasi email & nama akun.
+                        🔒 Proteksi Identitas: Kata sandi hanya bisa direset jika nomor HP cocok dengan data pendaftaranmu.
                       </Text>
                     </View>
 
@@ -863,48 +849,20 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                       <TouchableOpacity
                         style={styles.modalSaveBtn}
                         activeOpacity={0.85}
-                        onPress={handleVerifyIdentityAndSendOtp}
+                        onPress={handleVerifyPhone}
                         disabled={resetIsLoading}
                       >
                         {resetIsLoading ? (
                           <ActivityIndicator color="#FFFFFF" size="small" />
                         ) : (
-                          <Text style={styles.modalSaveText}>Verifikasi Identitas ➔</Text>
+                          <Text style={styles.modalSaveText}>Verifikasi Nomor HP ➔</Text>
                         )}
                       </TouchableOpacity>
                     </View>
                   </>
                 ) : (
-                  /* STEP 2: OTP VERIFICATION & SET NEW PASSWORD FORM */
+                  /* STEP 2: SET NEW PASSWORD FORM */
                   <>
-                    {/* OTP 4-Digit Input */}
-                    <View style={styles.inputGroup}>
-                      <Text style={styles.label}>Kode OTP 4-Digit</Text>
-                      <View style={styles.inputWrapper}>
-                        <Ionicons name="keypad-outline" size={18} color="#188F7B" />
-                        <TextInput
-                          style={[styles.input, styles.otpInput]}
-                          placeholder="••••"
-                          placeholderTextColor="#C9BDB7"
-                          keyboardType="number-pad"
-                          maxLength={4}
-                          value={inputOtp}
-                          onChangeText={setInputOtp}
-                        />
-                      </View>
-                      <View style={styles.resendRow}>
-                        {otpTimer > 0 ? (
-                          <Text style={styles.resendText}>
-                            ⏱️ Kirim ulang kode dalam <Text style={{ fontWeight: '800', color: '#188F7B' }}>{otpTimer}s</Text>
-                          </Text>
-                        ) : (
-                          <TouchableOpacity onPress={handleResendOtp}>
-                            <Text style={styles.resendBtnText}>🔄 Kirim Ulang Kode OTP</Text>
-                          </TouchableOpacity>
-                        )}
-                      </View>
-                    </View>
-
                     {/* New Password */}
                     <View style={styles.inputGroup}>
                       <Text style={styles.label}>Kata Sandi Baru</Text>
@@ -982,7 +940,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                       <TouchableOpacity
                         style={styles.modalCancelBtn}
                         activeOpacity={0.7}
-                        onPress={() => setResetStep('identify')}
+                        onPress={() => setResetStep('verify_phone')}
                         disabled={resetIsLoading}
                       >
                         <Text style={styles.modalCancelText}>Kembali</Text>
@@ -991,7 +949,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                       <TouchableOpacity
                         style={styles.modalSaveBtn}
                         activeOpacity={0.85}
-                        onPress={handleFinalResetPassword}
+                        onPress={handleSaveNewPassword}
                         disabled={resetIsLoading}
                       >
                         {resetIsLoading ? (

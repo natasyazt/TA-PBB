@@ -7,6 +7,7 @@ export type SugarHabitFreq = 'daily' | 'frequent' | 'occasional' | 'rare'; // Fr
 export interface UserProfile {
   id: string;
   email: string;
+  phone?: string;
   name: string; // Nama Lengkap
   nickname?: string; // Nama Panggilan untuk sapaan "Halo [nickname]!"
   age: number;

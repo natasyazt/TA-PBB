@@ -123,6 +123,16 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             </Text>
           </View>
 
+          {Boolean(profile.phone) && (
+            <>
+              <View style={styles.divider} />
+              <View style={styles.rowItem}>
+                <Text style={styles.rowLabel}>Nomor HP</Text>
+                <Text style={styles.rowVal}>{profile.phone}</Text>
+              </View>
+            </>
+          )}
+
           <View style={styles.divider} />
 
           <View style={styles.rowItem}>

@@ -14,6 +14,7 @@ const KEYS = {
 export interface RegisteredAccount {
   id: string;
   email: string;
+  phone?: string;
   password: string;
   name: string;
   nickname?: string;
@@ -24,6 +25,7 @@ export interface RegisteredAccount {
 const DEFAULT_PROFILE: UserProfile = {
   id: 'user_default',
   email: 'temansehat@gulamate.id',
+  phone: '081234567890',
   name: 'Teman Manis',
   nickname: 'Manis',
   age: 22,
