@@ -9,6 +9,7 @@ import {
   Platform,
   Animated,
   Easing,
+  PanResponder,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -72,33 +73,78 @@ export default function App() {
   const dashboardFadeAnim = useRef(new Animated.Value(0)).current;
   const dashboardSlideAnim = useRef(new Animated.Value(20)).current;
 
-  // Trigger tab switch animation
-  useEffect(() => {
-    tabFadeAnim.setValue(0);
-    tabSlideAnim.setValue(12);
-    tabScaleAnim.setValue(0.985);
+  const currentTabRef = useRef<TabName>(currentTab);
+  currentTabRef.current = currentTab;
 
-    Animated.parallel([
-      Animated.timing(tabFadeAnim, {
-        toValue: 1,
-        duration: 250,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: Platform.OS !== 'web',
-      }),
-      Animated.timing(tabSlideAnim, {
-        toValue: 0,
-        duration: 250,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: Platform.OS !== 'web',
-      }),
-      Animated.timing(tabScaleAnim, {
-        toValue: 1,
-        duration: 250,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: Platform.OS !== 'web',
-      }),
-    ]).start();
-  }, [currentTab]);
+  // Directional slide transition between screens
+  const switchTabWithSlide = useCallback(
+    (newTab: TabName, direction?: 'left' | 'right') => {
+      if (newTab === currentTabRef.current) return;
+      const tabs: TabName[] = ['home', 'stats', 'calendar', 'profile'];
+      const oldIdx = tabs.indexOf(currentTabRef.current);
+      const newIdx = tabs.indexOf(newTab);
+      const dir = direction || (newIdx > oldIdx ? 'left' : 'right');
+
+      const startX = dir === 'left' ? 36 : -36;
+      tabFadeAnim.setValue(0);
+      tabSlideAnim.setValue(startX);
+      tabScaleAnim.setValue(0.985);
+
+      setCurrentTab(newTab);
+
+      Animated.parallel([
+        Animated.timing(tabFadeAnim, {
+          toValue: 1,
+          duration: 220,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: Platform.OS !== 'web',
+        }),
+        Animated.timing(tabSlideAnim, {
+          toValue: 0,
+          duration: 220,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: Platform.OS !== 'web',
+        }),
+        Animated.timing(tabScaleAnim, {
+          toValue: 1,
+          duration: 220,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: Platform.OS !== 'web',
+        }),
+      ]).start();
+    },
+    [tabFadeAnim, tabSlideAnim, tabScaleAnim]
+  );
+
+  // Horizontal pan gesture responder for swipe navigation between screens
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        // Only capture distinct horizontal swipe to allow vertical scroll inside screens
+        return (
+          Math.abs(gestureState.dx) > 28 &&
+          Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.4
+        );
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        const tabs: TabName[] = ['home', 'stats', 'calendar', 'profile'];
+        const currIdx = tabs.indexOf(currentTabRef.current);
+
+        // Swiped Left -> go to next screen (Home -> Stats -> Calendar -> Profile)
+        if (gestureState.dx < -45 || gestureState.vx < -0.3) {
+          if (currIdx < tabs.length - 1) {
+            switchTabWithSlide(tabs[currIdx + 1], 'left');
+          }
+        }
+        // Swiped Right -> go to previous screen (Profile -> Calendar -> Stats -> Home)
+        else if (gestureState.dx > 45 || gestureState.vx > 0.3) {
+          if (currIdx > 0) {
+            switchTabWithSlide(tabs[currIdx - 1], 'right');
+          }
+        }
+      },
+    })
+  ).current;
 
   // Trigger dashboard entrance animation on login
   useEffect(() => {
@@ -342,12 +388,13 @@ export default function App() {
 
         {/* Screen Content with Smooth Page Animation */}
         <Animated.View
+          {...panResponder.panHandlers}
           style={[
             styles.screenContainer,
             {
               opacity: tabFadeAnim,
               transform: [
-                { translateY: tabSlideAnim },
+                { translateX: tabSlideAnim },
                 { scale: tabScaleAnim },
               ],
             },
@@ -363,8 +410,8 @@ export default function App() {
               onOpenAddModal={() => handleOpenAddForDate(activeDate)}
               onDeleteLog={handleDeleteFood}
               onRefresh={loadData}
-              onGoToSettings={() => setCurrentTab('profile')}
-              onOpenCalendar={() => setCurrentTab('calendar')}
+              onGoToSettings={() => switchTabWithSlide('profile')}
+              onOpenCalendar={() => switchTabWithSlide('calendar')}
               onQuickLogWater={handleQuickLogWater}
               onQuickRemoveWater={handleQuickRemoveWater}
             />
@@ -377,7 +424,7 @@ export default function App() {
               activeDate={activeDate}
               onSelectDay={(date) => {
                 setActiveDate(date);
-                setCurrentTab('home');
+                switchTabWithSlide('home');
               }}
               onAddFood={handleAddFood}
             />
@@ -413,7 +460,7 @@ export default function App() {
           <TouchableOpacity
             style={styles.navButton}
             activeOpacity={0.7}
-            onPress={() => setCurrentTab('home')}
+            onPress={() => switchTabWithSlide('home')}
           >
             <View
               style={[
@@ -441,7 +488,7 @@ export default function App() {
           <TouchableOpacity
             style={styles.navButton}
             activeOpacity={0.7}
-            onPress={() => setCurrentTab('stats')}
+            onPress={() => switchTabWithSlide('stats')}
           >
             <View
               style={[
@@ -483,7 +530,7 @@ export default function App() {
           <TouchableOpacity
             style={styles.navButton}
             activeOpacity={0.7}
-            onPress={() => setCurrentTab('calendar')}
+            onPress={() => switchTabWithSlide('calendar')}
           >
             <View
               style={[
@@ -511,7 +558,7 @@ export default function App() {
           <TouchableOpacity
             style={styles.navButton}
             activeOpacity={0.7}
-            onPress={() => setCurrentTab('profile')}
+            onPress={() => switchTabWithSlide('profile')}
           >
             <View
               style={[

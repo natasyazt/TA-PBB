@@ -124,6 +124,23 @@ export async function updateAccountProfile(email: string, profile: UserProfile):
   }
 }
 
+export async function updateAccountPassword(email: string, newPassword: string): Promise<boolean> {
+  try {
+    const accounts = await getRegisteredAccounts();
+    const normalized = email.trim().toLowerCase();
+    const index = accounts.findIndex((a) => a.email.trim().toLowerCase() === normalized);
+
+    if (index >= 0) {
+      accounts[index].password = newPassword;
+      await AsyncStorage.setItem(KEYS.REGISTERED_ACCOUNTS, JSON.stringify(accounts));
+      return true;
+    }
+  } catch (e) {
+    console.warn('Error updating account password:', e);
+  }
+  return false;
+}
+
 export async function getExistingProfileByEmail(email: string): Promise<UserProfile | null> {
   try {
     const json = await AsyncStorage.getItem(KEYS.PROFILE);

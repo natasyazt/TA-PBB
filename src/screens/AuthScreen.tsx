@@ -12,6 +12,8 @@ import {
   ActivityIndicator,
   Animated,
   Easing,
+  Modal,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Shadows } from '../constants/colors';
@@ -22,6 +24,7 @@ import {
   findRegisteredAccount,
   saveRegisteredAccount,
   getExistingProfileByEmail,
+  updateAccountPassword,
   RegisteredAccount,
 } from '../services/storage';
 
@@ -73,6 +76,106 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   const hasNumber = /\d/.test(password);
   const hasSymbol = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(password);
   const isPasswordSecure = hasMinLength && hasNumber && hasSymbol;
+
+  // Forgot password modal state
+  const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetNewPassword, setResetNewPassword] = useState('');
+  const [resetConfirmPassword, setResetConfirmPassword] = useState('');
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [resetIsLoading, setResetIsLoading] = useState(false);
+  const [resetErrorMsg, setResetErrorMsg] = useState('');
+  const [resetSuccessMsg, setResetSuccessMsg] = useState('');
+
+  // Password validation for reset
+  const resetHasMinLength = resetNewPassword.length >= 6;
+  const resetHasNumber = /\d/.test(resetNewPassword);
+  const resetHasSymbol = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(resetNewPassword);
+
+  const handleResetPassword = async () => {
+    setResetErrorMsg('');
+    setResetSuccessMsg('');
+
+    const normalized = resetEmail.trim().toLowerCase();
+    if (!normalized) {
+      setResetErrorMsg('Mohon masukkan alamat email akunmu.');
+      return;
+    }
+    if (!resetNewPassword || !resetConfirmPassword) {
+      setResetErrorMsg('Mohon lengkapi kata sandi baru dan konfirmasinya.');
+      return;
+    }
+    if (resetNewPassword !== resetConfirmPassword) {
+      setResetErrorMsg('Kata sandi baru dan konfirmasi kata sandi tidak cocok.');
+      return;
+    }
+    if (!resetHasMinLength) {
+      setResetErrorMsg('Kata sandi baru minimal 6 karakter.');
+      return;
+    }
+    if (!resetHasNumber) {
+      setResetErrorMsg('Kata sandi baru harus mengandung minimal 1 angka.');
+      return;
+    }
+    if (!resetHasSymbol) {
+      setResetErrorMsg('Kata sandi baru harus mengandung minimal 1 simbol (!@#$%^&*).');
+      return;
+    }
+
+    setResetIsLoading(true);
+
+    try {
+      // 1. Check local registered account
+      const existingAccount = await findRegisteredAccount(normalized);
+      let accountFound = false;
+
+      if (existingAccount) {
+        await updateAccountPassword(normalized, resetNewPassword);
+        accountFound = true;
+      } else {
+        // Check profile migration
+        const prevProfile = await getExistingProfileByEmail(normalized);
+        if (prevProfile) {
+          const migrated: RegisteredAccount = {
+            id: prevProfile.id || ('user_' + Date.now()),
+            email: normalized,
+            password: resetNewPassword,
+            name: prevProfile.name || 'Teman Manis',
+            nickname: prevProfile.nickname || 'Manis',
+            createdAt: new Date().toISOString(),
+            profile: prevProfile,
+          };
+          await saveRegisteredAccount(migrated);
+          accountFound = true;
+        }
+      }
+
+      // 2. Also attempt sync with Supabase if online
+      const supabase = getClient();
+      if (supabase) {
+        try {
+          await supabase.auth.resetPasswordForEmail(normalized).catch(() => {});
+        } catch {}
+      }
+
+      if (accountFound) {
+        setResetSuccessMsg('Kata sandi berhasil diperbarui! Silakan masuk dengan kata sandi barumu.');
+        setEmail(normalized);
+        setPassword(resetNewPassword);
+        setResetIsLoading(false);
+        setTimeout(() => {
+          setShowForgotPasswordModal(false);
+          setResetSuccessMsg('');
+        }, 1600);
+      } else {
+        setResetIsLoading(false);
+        setResetErrorMsg('Akun dengan email ini belum terdaftar. Silakan pilih "Daftar Akun Baru".');
+      }
+    } catch {
+      setResetIsLoading(false);
+      setResetErrorMsg('Gagal memperbarui kata sandi. Silakan coba lagi.');
+    }
+  };
 
   const handleAuth = async () => {
     setErrorMsg('');
@@ -464,6 +567,23 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               </View>
             </View>
 
+            {mode === 'login' && (
+              <TouchableOpacity
+                style={styles.forgotPasswordRow}
+                activeOpacity={0.7}
+                onPress={() => {
+                  setResetEmail(email.trim());
+                  setResetNewPassword('');
+                  setResetConfirmPassword('');
+                  setResetErrorMsg('');
+                  setResetSuccessMsg('');
+                  setShowForgotPasswordModal(true);
+                }}
+              >
+                <Text style={styles.forgotPasswordText}>Lupa kata sandi?</Text>
+              </TouchableOpacity>
+            )}
+
             <TouchableOpacity
               style={styles.submitBtn}
               activeOpacity={0.85}
@@ -483,6 +603,157 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
           </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Forgot Password Modal */}
+      <Modal
+        visible={showForgotPasswordModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowForgotPasswordModal(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setShowForgotPasswordModal(false)}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+              <View style={styles.modalCard}>
+                <View style={styles.modalHeader}>
+                  <View style={styles.modalIconBox}>
+                    <Ionicons name="key" size={24} color="#188F7B" />
+                  </View>
+                  <Text style={styles.modalTitle}>Lupa Kata Sandi?</Text>
+                  <Text style={styles.modalSubtitle}>
+                    Masukkan email akunmu dan buat kata sandi baru untuk kembali memantau asupan gula.
+                  </Text>
+                </View>
+
+                {resetErrorMsg.length > 0 && (
+                  <View style={styles.errorBox}>
+                    <Ionicons name="alert-circle" size={16} color="#E53E3E" />
+                    <Text style={styles.errorText}>{resetErrorMsg}</Text>
+                  </View>
+                )}
+
+                {resetSuccessMsg.length > 0 && (
+                  <View style={styles.successBox}>
+                    <Ionicons name="checkmark-circle" size={16} color="#188F7B" />
+                    <Text style={styles.successText}>{resetSuccessMsg}</Text>
+                  </View>
+                )}
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Alamat Email</Text>
+                  <View style={styles.inputWrapper}>
+                    <Ionicons name="mail-outline" size={18} color={Colors.textMuted} />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="nama@email.com"
+                      placeholderTextColor={Colors.textMuted}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      value={resetEmail}
+                      onChangeText={setResetEmail}
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Kata Sandi Baru</Text>
+                  <View style={styles.inputWrapper}>
+                    <Ionicons name="lock-closed-outline" size={18} color={Colors.textMuted} />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Minimal 6 karakter, angka & simbol"
+                      placeholderTextColor={Colors.textMuted}
+                      secureTextEntry={!showResetPassword}
+                      value={resetNewPassword}
+                      onChangeText={setResetNewPassword}
+                    />
+                    <TouchableOpacity onPress={() => setShowResetPassword(!showResetPassword)}>
+                      <Ionicons
+                        name={showResetPassword ? 'eye-off-outline' : 'eye-outline'}
+                        size={18}
+                        color={Colors.textMuted}
+                      />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Konfirmasi Kata Sandi Baru</Text>
+                  <View style={styles.inputWrapper}>
+                    <Ionicons name="shield-checkmark-outline" size={18} color={Colors.textMuted} />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Ulangi kata sandi baru"
+                      placeholderTextColor={Colors.textMuted}
+                      secureTextEntry={!showResetPassword}
+                      value={resetConfirmPassword}
+                      onChangeText={setResetConfirmPassword}
+                    />
+                  </View>
+                </View>
+
+                {/* Password Requirements Checklist */}
+                <View style={styles.passwordReqsContainer}>
+                  <View style={styles.reqItem}>
+                    <Ionicons
+                      name={resetHasMinLength ? 'checkmark-circle' : 'ellipse-outline'}
+                      size={14}
+                      color={resetHasMinLength ? '#188F7B' : '#A89B94'}
+                    />
+                    <Text style={[styles.reqText, resetHasMinLength && styles.reqTextValid]}>
+                      Minimal 6 karakter
+                    </Text>
+                  </View>
+                  <View style={styles.reqItem}>
+                    <Ionicons
+                      name={resetHasNumber ? 'checkmark-circle' : 'ellipse-outline'}
+                      size={14}
+                      color={resetHasNumber ? '#188F7B' : '#A89B94'}
+                    />
+                    <Text style={[styles.reqText, resetHasNumber && styles.reqTextValid]}>
+                      Mengandung angka (0-9)
+                    </Text>
+                  </View>
+                  <View style={styles.reqItem}>
+                    <Ionicons
+                      name={resetHasSymbol ? 'checkmark-circle' : 'ellipse-outline'}
+                      size={14}
+                      color={resetHasSymbol ? '#188F7B' : '#A89B94'}
+                    />
+                    <Text style={[styles.reqText, resetHasSymbol && styles.reqTextValid]}>
+                      Mengandung simbol (!@#$%^&*)
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.modalBtnRow}>
+                  <TouchableOpacity
+                    style={styles.modalCancelBtn}
+                    activeOpacity={0.7}
+                    onPress={() => setShowForgotPasswordModal(false)}
+                    disabled={resetIsLoading}
+                  >
+                    <Text style={styles.modalCancelText}>Batal</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.modalSaveBtn}
+                    activeOpacity={0.85}
+                    onPress={handleResetPassword}
+                    disabled={resetIsLoading}
+                  >
+                    {resetIsLoading ? (
+                      <ActivityIndicator color="#FFFFFF" size="small" />
+                    ) : (
+                      <Text style={styles.modalSaveText}>Perbarui Sandi</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -651,6 +922,105 @@ const styles = StyleSheet.create({
   },
   submitBtnText: {
     fontSize: 15,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  forgotPasswordRow: {
+    alignSelf: 'flex-end',
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    marginBottom: 4,
+  },
+  forgotPasswordText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#188F7B',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(35, 28, 24, 0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 400,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 28,
+    padding: 24,
+    ...Shadows.card,
+  },
+  modalHeader: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#EAF8F4',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: Colors.textPrimary,
+  },
+  modalSubtitle: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 4,
+    lineHeight: 18,
+  },
+  successBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EAF8F4',
+    borderWidth: 1,
+    borderColor: '#BFE7DE',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 14,
+    gap: 8,
+  },
+  successText: {
+    fontSize: 12,
+    color: '#188F7B',
+    fontWeight: '600',
+    flex: 1,
+  },
+  modalBtnRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 18,
+  },
+  modalCancelBtn: {
+    flex: 1,
+    backgroundColor: '#F5EFE7',
+    paddingVertical: 13,
+    borderRadius: 18,
+    alignItems: 'center',
+  },
+  modalCancelText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#766A64',
+  },
+  modalSaveBtn: {
+    flex: 1.5,
+    backgroundColor: Colors.primary,
+    paddingVertical: 13,
+    borderRadius: 18,
+    alignItems: 'center',
+    ...Shadows.soft,
+  },
+  modalSaveText: {
+    fontSize: 14,
     fontWeight: '800',
     color: '#FFFFFF',
   },
