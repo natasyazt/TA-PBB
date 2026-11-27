@@ -116,11 +116,10 @@ export default function App() {
     [tabFadeAnim, tabSlideAnim, tabScaleAnim]
   );
 
-  // Horizontal pan gesture responder for swipe navigation between screens
   const panResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_, gestureState) => {
-        // Only capture distinct horizontal swipe to allow vertical scroll inside screens
+
         return (
           Math.abs(gestureState.dx) > 28 &&
           Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.4
@@ -130,7 +129,6 @@ export default function App() {
         const tabs: TabName[] = ['home', 'stats', 'calendar', 'profile'];
         const currIdx = tabs.indexOf(currentTabRef.current);
 
-        // Swiped Left -> go to next screen (Home -> Stats -> Calendar -> Profile)
         if (gestureState.dx < -45 || gestureState.vx < -0.3) {
           if (currIdx < tabs.length - 1) {
             switchTabWithSlide(tabs[currIdx + 1], 'left');
@@ -386,214 +384,214 @@ export default function App() {
         <SafeAreaView style={styles.appContainer}>
           <StatusBar style="dark" />
 
-        {/* Screen Content with Smooth Page Animation */}
-        <Animated.View
-          {...panResponder.panHandlers}
-          style={[
-            styles.screenContainer,
-            {
-              opacity: tabFadeAnim,
-              transform: [
-                { translateX: tabSlideAnim },
-                { scale: tabScaleAnim },
-              ],
-            },
-          ]}
-        >
-          {currentTab === 'home' && (
-            <HomeScreen
-              profile={profile}
-              todayLogs={todayLogs}
-              activeDate={activeDate}
-              virtualDate={activeDate}
-              onSelectDate={(newDate) => setActiveDate(newDate)}
-              onOpenAddModal={() => handleOpenAddForDate(activeDate)}
-              onDeleteLog={handleDeleteFood}
-              onRefresh={loadData}
-              onGoToSettings={() => switchTabWithSlide('profile')}
-              onOpenCalendar={() => switchTabWithSlide('calendar')}
-              onQuickLogWater={handleQuickLogWater}
-              onQuickRemoveWater={handleQuickRemoveWater}
-            />
-          )}
-
-          {currentTab === 'stats' && (
-            <StatsScreen
-              profile={profile}
-              allLogs={allLogs}
-              activeDate={activeDate}
-              onSelectDay={(date) => {
-                setActiveDate(date);
-                switchTabWithSlide('home');
-              }}
-              onAddFood={handleAddFood}
-            />
-          )}
-
-          {currentTab === 'calendar' && (
-            <CalendarScreen
-              profile={profile}
-              allLogs={allLogs}
-              activeDate={activeDate}
-              onOpenAddModalForDate={handleOpenAddForDate}
-              onDeleteLog={handleDeleteFood}
-            />
-          )}
-
-          {currentTab === 'profile' && (
-            <ProfileScreen
-              profile={profile}
-              activeDate={activeDate}
-              onEditProfile={() => setIsEditingProfile(true)}
-              onResetAllData={handleResetData}
-              onLogout={handleLogout}
-              onUpdateProfile={handleUpdateProfile}
-            />
-          )}
-        </Animated.View>
-
-      {/* Symmetrical Bottom Navigation Bar (2 Left, Center FAB, 2 Right) */}
-      <View style={styles.bottomNavContainer}>
-        {/* Left Side Group (2 Tabs) */}
-        <View style={styles.navSideGroup}>
-          {/* Tab 1: Hari Ini */}
-          <TouchableOpacity
-            style={styles.navButton}
-            activeOpacity={0.7}
-            onPress={() => switchTabWithSlide('home')}
+          {/* Screen Content with Smooth Page Animation */}
+          <Animated.View
+            {...panResponder.panHandlers}
+            style={[
+              styles.screenContainer,
+              {
+                opacity: tabFadeAnim,
+                transform: [
+                  { translateX: tabSlideAnim },
+                  { scale: tabScaleAnim },
+                ],
+              },
+            ]}
           >
-            <View
-              style={[
-                styles.navIconBox,
-                currentTab === 'home' && styles.navIconBoxActive,
-              ]}
-            >
-              <Ionicons
-                name={currentTab === 'home' ? 'home' : 'home-outline'}
-                size={21}
-                color={currentTab === 'home' ? '#188F7B' : '#A89B94'}
+            {currentTab === 'home' && (
+              <HomeScreen
+                profile={profile}
+                todayLogs={todayLogs}
+                activeDate={activeDate}
+                virtualDate={activeDate}
+                onSelectDate={(newDate) => setActiveDate(newDate)}
+                onOpenAddModal={() => handleOpenAddForDate(activeDate)}
+                onDeleteLog={handleDeleteFood}
+                onRefresh={loadData}
+                onGoToSettings={() => switchTabWithSlide('profile')}
+                onOpenCalendar={() => switchTabWithSlide('calendar')}
+                onQuickLogWater={handleQuickLogWater}
+                onQuickRemoveWater={handleQuickRemoveWater}
               />
-            </View>
-            <Text
-              style={[
-                styles.navLabel,
-                currentTab === 'home' && styles.navLabelActive,
-              ]}
-            >
-              Hari ini
-            </Text>
-          </TouchableOpacity>
+            )}
 
-          {/* Tab 2: Riwayat */}
-          <TouchableOpacity
-            style={styles.navButton}
-            activeOpacity={0.7}
-            onPress={() => switchTabWithSlide('stats')}
-          >
-            <View
-              style={[
-                styles.navIconBox,
-                currentTab === 'stats' && styles.navIconBoxActive,
-              ]}
-            >
-              <Ionicons
-                name={currentTab === 'stats' ? 'stats-chart' : 'stats-chart-outline'}
-                size={21}
-                color={currentTab === 'stats' ? '#188F7B' : '#A89B94'}
+            {currentTab === 'stats' && (
+              <StatsScreen
+                profile={profile}
+                allLogs={allLogs}
+                activeDate={activeDate}
+                onSelectDay={(date) => {
+                  setActiveDate(date);
+                  switchTabWithSlide('home');
+                }}
+                onAddFood={handleAddFood}
               />
-            </View>
-            <Text
-              style={[
-                styles.navLabel,
-                currentTab === 'stats' && styles.navLabelActive,
-              ]}
-            >
-              Riwayat
-            </Text>
-          </TouchableOpacity>
-        </View>
+            )}
 
-        {/* Center Floating Elevated (+) Button */}
-        <View style={styles.centerFabAnchor}>
-          <TouchableOpacity
-            style={styles.centerFabButton}
-            activeOpacity={0.85}
-            onPress={() => handleOpenAddForDate(activeDate)}
-          >
-            <Ionicons name="add" size={28} color="#FFFFFF" />
-          </TouchableOpacity>
-        </View>
-
-        {/* Right Side Group (2 Tabs) */}
-        <View style={styles.navSideGroup}>
-          {/* Tab 3: Kalender */}
-          <TouchableOpacity
-            style={styles.navButton}
-            activeOpacity={0.7}
-            onPress={() => switchTabWithSlide('calendar')}
-          >
-            <View
-              style={[
-                styles.navIconBox,
-                currentTab === 'calendar' && styles.navIconBoxActive,
-              ]}
-            >
-              <Ionicons
-                name={currentTab === 'calendar' ? 'calendar' : 'calendar-outline'}
-                size={21}
-                color={currentTab === 'calendar' ? '#188F7B' : '#A89B94'}
+            {currentTab === 'calendar' && (
+              <CalendarScreen
+                profile={profile}
+                allLogs={allLogs}
+                activeDate={activeDate}
+                onOpenAddModalForDate={handleOpenAddForDate}
+                onDeleteLog={handleDeleteFood}
               />
-            </View>
-            <Text
-              style={[
-                styles.navLabel,
-                currentTab === 'calendar' && styles.navLabelActive,
-              ]}
-            >
-              Kalender
-            </Text>
-          </TouchableOpacity>
+            )}
 
-          {/* Tab 4: Profil */}
-          <TouchableOpacity
-            style={styles.navButton}
-            activeOpacity={0.7}
-            onPress={() => switchTabWithSlide('profile')}
-          >
-            <View
-              style={[
-                styles.navIconBox,
-                currentTab === 'profile' && styles.navIconBoxActive,
-              ]}
-            >
-              <Ionicons
-                name={currentTab === 'profile' ? 'person' : 'person-outline'}
-                size={21}
-                color={currentTab === 'profile' ? '#188F7B' : '#A89B94'}
+            {currentTab === 'profile' && (
+              <ProfileScreen
+                profile={profile}
+                activeDate={activeDate}
+                onEditProfile={() => setIsEditingProfile(true)}
+                onResetAllData={handleResetData}
+                onLogout={handleLogout}
+                onUpdateProfile={handleUpdateProfile}
               />
-            </View>
-            <Text
-              style={[
-                styles.navLabel,
-                currentTab === 'profile' && styles.navLabelActive,
-              ]}
-            >
-              Profil
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </SafeAreaView>
-  </Animated.View>
+            )}
+          </Animated.View>
 
-  {/* Add Food Modal with AI Auto-Estimation placed outside any transformed ancestor */}
-  <AddFoodModal
-    visible={isAddModalOpen}
-    targetDate={targetAddDate || activeDate}
-    onClose={() => setIsAddModalOpen(false)}
-    onAddFood={handleAddFood}
-  />
-</View>
+          {/* Symmetrical Bottom Navigation Bar (2 Left, Center FAB, 2 Right) */}
+          <View style={styles.bottomNavContainer}>
+            {/* Left Side Group (2 Tabs) */}
+            <View style={styles.navSideGroup}>
+              {/* Tab 1: Hari Ini */}
+              <TouchableOpacity
+                style={styles.navButton}
+                activeOpacity={0.7}
+                onPress={() => switchTabWithSlide('home')}
+              >
+                <View
+                  style={[
+                    styles.navIconBox,
+                    currentTab === 'home' && styles.navIconBoxActive,
+                  ]}
+                >
+                  <Ionicons
+                    name={currentTab === 'home' ? 'home' : 'home-outline'}
+                    size={21}
+                    color={currentTab === 'home' ? '#188F7B' : '#A89B94'}
+                  />
+                </View>
+                <Text
+                  style={[
+                    styles.navLabel,
+                    currentTab === 'home' && styles.navLabelActive,
+                  ]}
+                >
+                  Hari ini
+                </Text>
+              </TouchableOpacity>
+
+              {/* Tab 2: Riwayat */}
+              <TouchableOpacity
+                style={styles.navButton}
+                activeOpacity={0.7}
+                onPress={() => switchTabWithSlide('stats')}
+              >
+                <View
+                  style={[
+                    styles.navIconBox,
+                    currentTab === 'stats' && styles.navIconBoxActive,
+                  ]}
+                >
+                  <Ionicons
+                    name={currentTab === 'stats' ? 'stats-chart' : 'stats-chart-outline'}
+                    size={21}
+                    color={currentTab === 'stats' ? '#188F7B' : '#A89B94'}
+                  />
+                </View>
+                <Text
+                  style={[
+                    styles.navLabel,
+                    currentTab === 'stats' && styles.navLabelActive,
+                  ]}
+                >
+                  Riwayat
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Center Floating Elevated (+) Button */}
+            <View style={styles.centerFabAnchor}>
+              <TouchableOpacity
+                style={styles.centerFabButton}
+                activeOpacity={0.85}
+                onPress={() => handleOpenAddForDate(activeDate)}
+              >
+                <Ionicons name="add" size={28} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Right Side Group (2 Tabs) */}
+            <View style={styles.navSideGroup}>
+              {/* Tab 3: Kalender */}
+              <TouchableOpacity
+                style={styles.navButton}
+                activeOpacity={0.7}
+                onPress={() => switchTabWithSlide('calendar')}
+              >
+                <View
+                  style={[
+                    styles.navIconBox,
+                    currentTab === 'calendar' && styles.navIconBoxActive,
+                  ]}
+                >
+                  <Ionicons
+                    name={currentTab === 'calendar' ? 'calendar' : 'calendar-outline'}
+                    size={21}
+                    color={currentTab === 'calendar' ? '#188F7B' : '#A89B94'}
+                  />
+                </View>
+                <Text
+                  style={[
+                    styles.navLabel,
+                    currentTab === 'calendar' && styles.navLabelActive,
+                  ]}
+                >
+                  Kalender
+                </Text>
+              </TouchableOpacity>
+
+              {/* Tab 4: Profil */}
+              <TouchableOpacity
+                style={styles.navButton}
+                activeOpacity={0.7}
+                onPress={() => switchTabWithSlide('profile')}
+              >
+                <View
+                  style={[
+                    styles.navIconBox,
+                    currentTab === 'profile' && styles.navIconBoxActive,
+                  ]}
+                >
+                  <Ionicons
+                    name={currentTab === 'profile' ? 'person' : 'person-outline'}
+                    size={21}
+                    color={currentTab === 'profile' ? '#188F7B' : '#A89B94'}
+                  />
+                </View>
+                <Text
+                  style={[
+                    styles.navLabel,
+                    currentTab === 'profile' && styles.navLabelActive,
+                  ]}
+                >
+                  Profil
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </SafeAreaView>
+      </Animated.View>
+
+      {/* Add Food Modal with AI Auto-Estimation placed outside any transformed ancestor */}
+      <AddFoodModal
+        visible={isAddModalOpen}
+        targetDate={targetAddDate || activeDate}
+        onClose={() => setIsAddModalOpen(false)}
+        onAddFood={handleAddFood}
+      />
+    </View>
   );
 }
 

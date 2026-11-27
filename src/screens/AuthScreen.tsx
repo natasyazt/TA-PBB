@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -77,9 +77,16 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   const hasSymbol = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(password);
   const isPasswordSecure = hasMinLength && hasNumber && hasSymbol;
 
-  // Forgot password modal state
+  // Multi-Step Identity Verification Forgot Password State
   const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
+  const [resetStep, setResetStep] = useState<'identify' | 'otp_password'>('identify');
   const [resetEmail, setResetEmail] = useState('');
+  const [resetName, setResetName] = useState('');
+  const [matchedAccountName, setMatchedAccountName] = useState('');
+  const [generatedOtp, setGeneratedOtp] = useState('');
+  const [inputOtp, setInputOtp] = useState('');
+  const [otpTimer, setOtpTimer] = useState(60);
+  const [otpBannerVisible, setOtpBannerVisible] = useState(false);
   const [resetNewPassword, setResetNewPassword] = useState('');
   const [resetConfirmPassword, setResetConfirmPassword] = useState('');
   const [showResetPassword, setShowResetPassword] = useState(false);
@@ -92,15 +99,136 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   const resetHasNumber = /\d/.test(resetNewPassword);
   const resetHasSymbol = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(resetNewPassword);
 
-  const handleResetPassword = async () => {
+  // Countdown timer for OTP
+  useEffect(() => {
+    let interval: any = null;
+    if (showForgotPasswordModal && resetStep === 'otp_password' && otpTimer > 0) {
+      interval = setInterval(() => {
+        setOtpTimer((prev) => (prev > 0 ? prev - 1 : 0));
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [showForgotPasswordModal, resetStep, otpTimer]);
+
+  const handleOpenForgotPassword = () => {
+    setResetEmail(email.trim());
+    setResetName('');
+    setResetStep('identify');
+    setResetNewPassword('');
+    setResetConfirmPassword('');
+    setGeneratedOtp('');
+    setInputOtp('');
+    setOtpBannerVisible(false);
+    setResetErrorMsg('');
+    setResetSuccessMsg('');
+    setShowForgotPasswordModal(true);
+  };
+
+  const handleVerifyIdentityAndSendOtp = async () => {
     setResetErrorMsg('');
     setResetSuccessMsg('');
 
     const normalized = resetEmail.trim().toLowerCase();
+    const enteredName = resetName.trim();
+
     if (!normalized) {
       setResetErrorMsg('Mohon masukkan alamat email akunmu.');
       return;
     }
+    if (!enteredName) {
+      setResetErrorMsg('Mohon masukkan nama lengkap yang kamu daftarkan.');
+      return;
+    }
+
+    setResetIsLoading(true);
+
+    try {
+      // 1. Look up account by email
+      const account = await findRegisteredAccount(normalized);
+      let foundAccount: RegisteredAccount | null = account;
+
+      if (!foundAccount) {
+        const prevProfile = await getExistingProfileByEmail(normalized);
+        if (prevProfile) {
+          foundAccount = {
+            id: prevProfile.id || ('user_' + Date.now()),
+            email: normalized,
+            password: '',
+            name: prevProfile.name || 'Teman Manis',
+            nickname: prevProfile.nickname || 'Manis',
+            createdAt: new Date().toISOString(),
+            profile: prevProfile,
+          };
+        }
+      }
+
+      if (!foundAccount) {
+        setResetIsLoading(false);
+        setResetErrorMsg('Akun dengan email ini belum terdaftar di GulaMate.');
+        return;
+      }
+
+      // 2. Verify identity: Compare full name
+      const accountFullName = (foundAccount.name || '').trim().toLowerCase();
+      const enteredFullName = enteredName.toLowerCase();
+
+      // Check for match (exact or name contains)
+      const isNameMatched =
+        accountFullName === enteredFullName ||
+        accountFullName.includes(enteredFullName) ||
+        enteredFullName.includes(accountFullName);
+
+      if (!isNameMatched) {
+        setResetIsLoading(false);
+        setResetErrorMsg(
+          'Konfirmasi identitas gagal: Nama lengkap tidak cocok dengan data pendaftaran akun ini. Demi keamanan, kamu harus memasukkan nama yang sama.'
+        );
+        return;
+      }
+
+      // 3. Identity confirmed -> generate 4-digit OTP code
+      const otpCode = Math.floor(1000 + Math.random() * 9000).toString();
+      setGeneratedOtp(otpCode);
+      setMatchedAccountName(foundAccount.name || 'Teman Manis');
+      setInputOtp('');
+      setOtpTimer(60);
+      setOtpBannerVisible(true);
+      setResetIsLoading(false);
+      setResetStep('otp_password');
+    } catch {
+      setResetIsLoading(false);
+      setResetErrorMsg('Terjadi kendala saat verifikasi identitas. Silakan coba lagi.');
+    }
+  };
+
+  const handleResendOtp = () => {
+    const newOtp = Math.floor(1000 + Math.random() * 9000).toString();
+    setGeneratedOtp(newOtp);
+    setInputOtp('');
+    setOtpTimer(60);
+    setOtpBannerVisible(true);
+    setResetErrorMsg('');
+  };
+
+  const handleFinalResetPassword = async () => {
+    setResetErrorMsg('');
+    setResetSuccessMsg('');
+
+    const normalized = resetEmail.trim().toLowerCase();
+
+    // 1. Verify OTP
+    if (!inputOtp.trim()) {
+      setResetErrorMsg('Mohon masukkan kode OTP 4-digit yang dikirimkan.');
+      return;
+    }
+    if (inputOtp.trim() !== generatedOtp) {
+      setResetErrorMsg('Kode OTP salah atau tidak valid. Silakan periksa notifikasi keamanan di atas.');
+      return;
+    }
+
+    // 2. Validate new password
     if (!resetNewPassword || !resetConfirmPassword) {
       setResetErrorMsg('Mohon lengkapi kata sandi baru dan konfirmasinya.');
       return;
@@ -125,52 +253,38 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     setResetIsLoading(true);
 
     try {
-      // 1. Check local registered account
       const existingAccount = await findRegisteredAccount(normalized);
-      let accountFound = false;
-
       if (existingAccount) {
         await updateAccountPassword(normalized, resetNewPassword);
-        accountFound = true;
       } else {
-        // Check profile migration
         const prevProfile = await getExistingProfileByEmail(normalized);
-        if (prevProfile) {
-          const migrated: RegisteredAccount = {
-            id: prevProfile.id || ('user_' + Date.now()),
-            email: normalized,
-            password: resetNewPassword,
-            name: prevProfile.name || 'Teman Manis',
-            nickname: prevProfile.nickname || 'Manis',
-            createdAt: new Date().toISOString(),
-            profile: prevProfile,
-          };
-          await saveRegisteredAccount(migrated);
-          accountFound = true;
-        }
+        const newAcc: RegisteredAccount = {
+          id: prevProfile?.id || ('user_' + Date.now()),
+          email: normalized,
+          password: resetNewPassword,
+          name: matchedAccountName || prevProfile?.name || 'Teman Manis',
+          nickname: prevProfile?.nickname || 'Manis',
+          createdAt: new Date().toISOString(),
+          profile: prevProfile || undefined,
+        };
+        await saveRegisteredAccount(newAcc);
       }
 
-      // 2. Also attempt sync with Supabase if online
+      // Sync Supabase if online
       const supabase = getClient();
       if (supabase) {
-        try {
-          await supabase.auth.resetPasswordForEmail(normalized).catch(() => {});
-        } catch {}
+        supabase.auth.resetPasswordForEmail(normalized).catch(() => {});
       }
 
-      if (accountFound) {
-        setResetSuccessMsg('Kata sandi berhasil diperbarui! Silakan masuk dengan kata sandi barumu.');
-        setEmail(normalized);
-        setPassword(resetNewPassword);
-        setResetIsLoading(false);
-        setTimeout(() => {
-          setShowForgotPasswordModal(false);
-          setResetSuccessMsg('');
-        }, 1600);
-      } else {
-        setResetIsLoading(false);
-        setResetErrorMsg('Akun dengan email ini belum terdaftar. Silakan pilih "Daftar Akun Baru".');
-      }
+      setResetSuccessMsg('Identitas terverifikasi & Kata sandi berhasil diperbarui! Mengalihkan ke login...');
+      setEmail(normalized);
+      setPassword(resetNewPassword);
+      setResetIsLoading(false);
+
+      setTimeout(() => {
+        setShowForgotPasswordModal(false);
+        setResetSuccessMsg('');
+      }, 1600);
     } catch {
       setResetIsLoading(false);
       setResetErrorMsg('Gagal memperbarui kata sandi. Silakan coba lagi.');
@@ -615,15 +729,76 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
           <View style={styles.modalOverlay}>
             <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
               <View style={styles.modalCard}>
+                {/* 2-Step Progress Indicator */}
+                <View style={styles.stepIndicatorRow}>
+                  <View style={[styles.stepChip, resetStep === 'identify' ? styles.stepChipActive : styles.stepChipDone]}>
+                    <Ionicons
+                      name={resetStep === 'otp_password' ? 'checkmark-circle' : 'shield-outline'}
+                      size={13}
+                      color={resetStep === 'identify' ? '#FFFFFF' : '#188F7B'}
+                    />
+                    <Text style={[styles.stepChipText, resetStep === 'identify' && styles.stepChipTextActive]}>
+                      1. Identitas
+                    </Text>
+                  </View>
+
+                  <View style={styles.stepDivider} />
+
+                  <View style={[styles.stepChip, resetStep === 'otp_password' && styles.stepChipActive]}>
+                    <Ionicons
+                      name="key-outline"
+                      size={13}
+                      color={resetStep === 'otp_password' ? '#FFFFFF' : '#8D7E77'}
+                    />
+                    <Text style={[styles.stepChipText, resetStep === 'otp_password' && styles.stepChipTextActive]}>
+                      2. OTP & Sandi
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Header */}
                 <View style={styles.modalHeader}>
                   <View style={styles.modalIconBox}>
-                    <Ionicons name="key" size={24} color="#188F7B" />
+                    <Ionicons
+                      name={resetStep === 'identify' ? 'shield-checkmark' : 'lock-open'}
+                      size={24}
+                      color="#188F7B"
+                    />
                   </View>
-                  <Text style={styles.modalTitle}>Lupa Kata Sandi?</Text>
+                  <Text style={styles.modalTitle}>
+                    {resetStep === 'identify' ? 'Verifikasi Pemilik Akun' : 'Kode OTP & Sandi Baru'}
+                  </Text>
                   <Text style={styles.modalSubtitle}>
-                    Masukkan email akunmu dan buat kata sandi baru untuk kembali memantau asupan gula.
+                    {resetStep === 'identify'
+                      ? 'Demi keamanan akunmu, mohon konfirmasi email dan nama lengkap yang kamu daftarkan saat pendaftaran.'
+                      : 'Masukkan kode verifikasi OTP 4-digit yang dikirimkan dan tentukan kata sandi barumu.'}
                   </Text>
                 </View>
+
+                {/* Simulated Security OTP Push Notification Banner */}
+                {resetStep === 'otp_password' && otpBannerVisible && (
+                  <View style={styles.otpBanner}>
+                    <View style={styles.otpBannerIcon}>
+                      <Ionicons name="notifications" size={16} color="#FFFFFF" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.otpBannerTitle}>Simulasi Notifikasi Keamanan GulaMate</Text>
+                      <Text style={styles.otpBannerText}>
+                        Kode OTP Anda: <Text style={styles.otpCodeHighlight}>{generatedOtp}</Text> (berlaku {otpTimer} detik)
+                      </Text>
+                    </View>
+                  </View>
+                )}
+
+                {/* Verified Account Identity Pill */}
+                {resetStep === 'otp_password' && (
+                  <View style={styles.verifiedAccountBadge}>
+                    <Ionicons name="person-circle" size={16} color="#188F7B" />
+                    <Text style={styles.verifiedAccountText} numberOfLines={1}>
+                      Pemilik: <Text style={{ fontWeight: '800' }}>{matchedAccountName}</Text> ({resetEmail})
+                    </Text>
+                  </View>
+                )}
 
                 {resetErrorMsg.length > 0 && (
                   <View style={styles.errorBox}>
@@ -639,116 +814,195 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                   </View>
                 )}
 
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Alamat Email</Text>
-                  <View style={styles.inputWrapper}>
-                    <Ionicons name="mail-outline" size={18} color={Colors.textMuted} />
-                    <TextInput
-                      style={styles.input}
-                      placeholder="nama@email.com"
-                      placeholderTextColor={Colors.textMuted}
-                      keyboardType="email-address"
-                      autoCapitalize="none"
-                      value={resetEmail}
-                      onChangeText={setResetEmail}
-                    />
-                  </View>
-                </View>
+                {/* STEP 1: IDENTIFICATION FORM */}
+                {resetStep === 'identify' ? (
+                  <>
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.label}>Alamat Email Akun</Text>
+                      <View style={styles.inputWrapper}>
+                        <Ionicons name="mail-outline" size={18} color={Colors.textMuted} />
+                        <TextInput
+                          style={styles.input}
+                          placeholder="nama@email.com"
+                          placeholderTextColor={Colors.textMuted}
+                          keyboardType="email-address"
+                          autoCapitalize="none"
+                          value={resetEmail}
+                          onChangeText={setResetEmail}
+                        />
+                      </View>
+                    </View>
 
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Kata Sandi Baru</Text>
-                  <View style={styles.inputWrapper}>
-                    <Ionicons name="lock-closed-outline" size={18} color={Colors.textMuted} />
-                    <TextInput
-                      style={styles.input}
-                      placeholder="Minimal 6 karakter, angka & simbol"
-                      placeholderTextColor={Colors.textMuted}
-                      secureTextEntry={!showResetPassword}
-                      value={resetNewPassword}
-                      onChangeText={setResetNewPassword}
-                    />
-                    <TouchableOpacity onPress={() => setShowResetPassword(!showResetPassword)}>
-                      <Ionicons
-                        name={showResetPassword ? 'eye-off-outline' : 'eye-outline'}
-                        size={18}
-                        color={Colors.textMuted}
-                      />
-                    </TouchableOpacity>
-                  </View>
-                </View>
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.label}>Nama Lengkap Pemilik Akun</Text>
+                      <View style={styles.inputWrapper}>
+                        <Ionicons name="person-outline" size={18} color={Colors.textMuted} />
+                        <TextInput
+                          style={styles.input}
+                          placeholder="Nama lengkap yang kamu daftarkan"
+                          placeholderTextColor={Colors.textMuted}
+                          value={resetName}
+                          onChangeText={setResetName}
+                        />
+                      </View>
+                      <Text style={styles.inputHint}>
+                        🛡️ Verifikasi keamanan: Hanya pemilik sah yang mengetahui kombinasi email & nama akun.
+                      </Text>
+                    </View>
 
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Konfirmasi Kata Sandi Baru</Text>
-                  <View style={styles.inputWrapper}>
-                    <Ionicons name="shield-checkmark-outline" size={18} color={Colors.textMuted} />
-                    <TextInput
-                      style={styles.input}
-                      placeholder="Ulangi kata sandi baru"
-                      placeholderTextColor={Colors.textMuted}
-                      secureTextEntry={!showResetPassword}
-                      value={resetConfirmPassword}
-                      onChangeText={setResetConfirmPassword}
-                    />
-                  </View>
-                </View>
+                    <View style={styles.modalBtnRow}>
+                      <TouchableOpacity
+                        style={styles.modalCancelBtn}
+                        activeOpacity={0.7}
+                        onPress={() => setShowForgotPasswordModal(false)}
+                        disabled={resetIsLoading}
+                      >
+                        <Text style={styles.modalCancelText}>Batal</Text>
+                      </TouchableOpacity>
 
-                {/* Password Requirements Checklist */}
-                <View style={styles.passwordReqsContainer}>
-                  <View style={styles.reqItem}>
-                    <Ionicons
-                      name={resetHasMinLength ? 'checkmark-circle' : 'ellipse-outline'}
-                      size={14}
-                      color={resetHasMinLength ? '#188F7B' : '#A89B94'}
-                    />
-                    <Text style={[styles.reqText, resetHasMinLength && styles.reqTextValid]}>
-                      Minimal 6 karakter
-                    </Text>
-                  </View>
-                  <View style={styles.reqItem}>
-                    <Ionicons
-                      name={resetHasNumber ? 'checkmark-circle' : 'ellipse-outline'}
-                      size={14}
-                      color={resetHasNumber ? '#188F7B' : '#A89B94'}
-                    />
-                    <Text style={[styles.reqText, resetHasNumber && styles.reqTextValid]}>
-                      Mengandung angka (0-9)
-                    </Text>
-                  </View>
-                  <View style={styles.reqItem}>
-                    <Ionicons
-                      name={resetHasSymbol ? 'checkmark-circle' : 'ellipse-outline'}
-                      size={14}
-                      color={resetHasSymbol ? '#188F7B' : '#A89B94'}
-                    />
-                    <Text style={[styles.reqText, resetHasSymbol && styles.reqTextValid]}>
-                      Mengandung simbol (!@#$%^&*)
-                    </Text>
-                  </View>
-                </View>
+                      <TouchableOpacity
+                        style={styles.modalSaveBtn}
+                        activeOpacity={0.85}
+                        onPress={handleVerifyIdentityAndSendOtp}
+                        disabled={resetIsLoading}
+                      >
+                        {resetIsLoading ? (
+                          <ActivityIndicator color="#FFFFFF" size="small" />
+                        ) : (
+                          <Text style={styles.modalSaveText}>Verifikasi Identitas ➔</Text>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                ) : (
+                  /* STEP 2: OTP VERIFICATION & SET NEW PASSWORD FORM */
+                  <>
+                    {/* OTP 4-Digit Input */}
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.label}>Kode OTP 4-Digit</Text>
+                      <View style={styles.inputWrapper}>
+                        <Ionicons name="keypad-outline" size={18} color="#188F7B" />
+                        <TextInput
+                          style={[styles.input, styles.otpInput]}
+                          placeholder="••••"
+                          placeholderTextColor="#C9BDB7"
+                          keyboardType="number-pad"
+                          maxLength={4}
+                          value={inputOtp}
+                          onChangeText={setInputOtp}
+                        />
+                      </View>
+                      <View style={styles.resendRow}>
+                        {otpTimer > 0 ? (
+                          <Text style={styles.resendText}>
+                            ⏱️ Kirim ulang kode dalam <Text style={{ fontWeight: '800', color: '#188F7B' }}>{otpTimer}s</Text>
+                          </Text>
+                        ) : (
+                          <TouchableOpacity onPress={handleResendOtp}>
+                            <Text style={styles.resendBtnText}>🔄 Kirim Ulang Kode OTP</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    </View>
 
-                <View style={styles.modalBtnRow}>
-                  <TouchableOpacity
-                    style={styles.modalCancelBtn}
-                    activeOpacity={0.7}
-                    onPress={() => setShowForgotPasswordModal(false)}
-                    disabled={resetIsLoading}
-                  >
-                    <Text style={styles.modalCancelText}>Batal</Text>
-                  </TouchableOpacity>
+                    {/* New Password */}
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.label}>Kata Sandi Baru</Text>
+                      <View style={styles.inputWrapper}>
+                        <Ionicons name="lock-closed-outline" size={18} color={Colors.textMuted} />
+                        <TextInput
+                          style={styles.input}
+                          placeholder="Minimal 6 karakter, angka & simbol"
+                          placeholderTextColor={Colors.textMuted}
+                          secureTextEntry={!showResetPassword}
+                          value={resetNewPassword}
+                          onChangeText={setResetNewPassword}
+                        />
+                        <TouchableOpacity onPress={() => setShowResetPassword(!showResetPassword)}>
+                          <Ionicons
+                            name={showResetPassword ? 'eye-off-outline' : 'eye-outline'}
+                            size={18}
+                            color={Colors.textMuted}
+                          />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
 
-                  <TouchableOpacity
-                    style={styles.modalSaveBtn}
-                    activeOpacity={0.85}
-                    onPress={handleResetPassword}
-                    disabled={resetIsLoading}
-                  >
-                    {resetIsLoading ? (
-                      <ActivityIndicator color="#FFFFFF" size="small" />
-                    ) : (
-                      <Text style={styles.modalSaveText}>Perbarui Sandi</Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
+                    {/* Confirm New Password */}
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.label}>Konfirmasi Kata Sandi Baru</Text>
+                      <View style={styles.inputWrapper}>
+                        <Ionicons name="shield-checkmark-outline" size={18} color={Colors.textMuted} />
+                        <TextInput
+                          style={styles.input}
+                          placeholder="Ulangi kata sandi baru"
+                          placeholderTextColor={Colors.textMuted}
+                          secureTextEntry={!showResetPassword}
+                          value={resetConfirmPassword}
+                          onChangeText={setResetConfirmPassword}
+                        />
+                      </View>
+                    </View>
+
+                    {/* Password Requirements Checklist */}
+                    <View style={styles.passwordReqsContainer}>
+                      <View style={styles.reqItem}>
+                        <Ionicons
+                          name={resetHasMinLength ? 'checkmark-circle' : 'ellipse-outline'}
+                          size={14}
+                          color={resetHasMinLength ? '#188F7B' : '#A89B94'}
+                        />
+                        <Text style={[styles.reqText, resetHasMinLength && styles.reqTextValid]}>
+                          Minimal 6 karakter
+                        </Text>
+                      </View>
+                      <View style={styles.reqItem}>
+                        <Ionicons
+                          name={resetHasNumber ? 'checkmark-circle' : 'ellipse-outline'}
+                          size={14}
+                          color={resetHasNumber ? '#188F7B' : '#A89B94'}
+                        />
+                        <Text style={[styles.reqText, resetHasNumber && styles.reqTextValid]}>
+                          Mengandung angka (0-9)
+                        </Text>
+                      </View>
+                      <View style={styles.reqItem}>
+                        <Ionicons
+                          name={resetHasSymbol ? 'checkmark-circle' : 'ellipse-outline'}
+                          size={14}
+                          color={resetHasSymbol ? '#188F7B' : '#A89B94'}
+                        />
+                        <Text style={[styles.reqText, resetHasSymbol && styles.reqTextValid]}>
+                          Mengandung simbol (!@#$%^&*)
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.modalBtnRow}>
+                      <TouchableOpacity
+                        style={styles.modalCancelBtn}
+                        activeOpacity={0.7}
+                        onPress={() => setResetStep('identify')}
+                        disabled={resetIsLoading}
+                      >
+                        <Text style={styles.modalCancelText}>Kembali</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.modalSaveBtn}
+                        activeOpacity={0.85}
+                        onPress={handleFinalResetPassword}
+                        disabled={resetIsLoading}
+                      >
+                        {resetIsLoading ? (
+                          <ActivityIndicator color="#FFFFFF" size="small" />
+                        ) : (
+                          <Text style={styles.modalSaveText}>Simpan Sandi Baru ✨</Text>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                )}
               </View>
             </TouchableWithoutFeedback>
           </View>
@@ -1023,5 +1277,130 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
     color: '#FFFFFF',
+  },
+  stepIndicatorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+    gap: 8,
+  },
+  stepChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    backgroundColor: '#F3EDE4',
+  },
+  stepChipActive: {
+    backgroundColor: '#188F7B',
+  },
+  stepChipDone: {
+    backgroundColor: '#EAF8F4',
+    borderWidth: 1,
+    borderColor: '#BFE7DE',
+  },
+  stepChipText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#8D7E77',
+  },
+  stepChipTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+  },
+  stepDivider: {
+    width: 14,
+    height: 1.5,
+    backgroundColor: '#D9CFC4',
+  },
+  otpBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#2A3038',
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  otpBannerIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#188F7B',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  otpBannerTitle: {
+    fontSize: 10,
+    color: '#A0AEC0',
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  otpBannerText: {
+    fontSize: 12,
+    color: '#FFFFFF',
+    fontWeight: '600',
+    marginTop: 1,
+  },
+  otpCodeHighlight: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#4FD1C5',
+    letterSpacing: 2,
+  },
+  verifiedAccountBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#EAF8F4',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#BFE7DE',
+  },
+  verifiedAccountText: {
+    fontSize: 11,
+    color: '#188F7B',
+    fontWeight: '600',
+    flex: 1,
+  },
+  otpInput: {
+    fontSize: 20,
+    fontWeight: '900',
+    textAlign: 'center',
+    letterSpacing: 8,
+    color: '#188F7B',
+  },
+  resendRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 6,
+  },
+  resendText: {
+    fontSize: 11,
+    color: '#8D7E77',
+  },
+  resendBtnText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#188F7B',
+  },
+  inputHint: {
+    fontSize: 11,
+    color: '#8D7E77',
+    marginTop: 4,
+    fontStyle: 'italic',
   },
 });
